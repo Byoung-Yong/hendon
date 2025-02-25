@@ -11,33 +11,49 @@ def fragmentation(n_iter, split_ratio_range, initial_volume, epsilon):
     progress_bar = st.progress(0)
     status_text = st.empty()
 
+    batch_size = 1000  # Process particles in batches
+    fine_vol = 0.000005
+    fine_vol_std = 0.6
+
     for i in range(n_iter):
         progress = i + 1
         progress_bar.progress(progress, text=f'Processing iteration {progress} of {n_iter}')
         status_text.text(f'Step {progress} of {n_iter} iterations')
 
         new_particles = []
-        for vol in particles:
-            loss = vol * epsilon
-            vol_remaining = vol - loss
-
-            r = np.random.uniform(split_ratio_range, 1-split_ratio_range)
+        for j in range(0, len(particles), batch_size):
+            batch = particles[j:j + batch_size]
+            
+            # Vectorized operations for the batch
+            loss = batch * epsilon
+            vol_remaining = batch - loss
+            
+            # Split remaining volume
+            r = np.random.uniform(split_ratio_range, 1-split_ratio_range, size=len(batch))
             vol1 = r * vol_remaining
             vol2 = (1 - r) * vol_remaining
-            new_particles.extend([vol1, vol2])
+            new_particles.extend(np.concatenate([vol1, vol2]))
 
-            fine_vol = 0.000005
-            fine_vol_std = 0.6
-            n_fine = max(1, np.random.poisson(loss / fine_vol))
-            fine_volumes = 10**(np.random.normal(np.log10(fine_vol), fine_vol_std, n_fine))
-            fine_particles.extend(fine_volumes.tolist())
-        particles = new_particles
+            # Generate fine particles
+            n_fine = np.maximum(1, np.random.poisson(loss / fine_vol))
+            total_fines = int(np.sum(n_fine))
+            if total_fines > 0:
+                fine_volumes = 10**(np.random.normal(np.log10(fine_vol), fine_vol_std, total_fines))
+                fine_particles.extend(fine_volumes)
+
+        particles = np.array(new_particles, dtype=np.float32)  # Use float32 instead of float64
+        
+        # Periodically clear lists to free memory
+        new_particles = []
+        if len(fine_particles) > 100000:
+            fine_particles = np.array(fine_particles, dtype=np.float32).tolist()
 
     progress_bar.empty()
     status_text.empty()
 
-    particles_arr = np.array(particles)
-    fines_arr = np.array(fine_particles)
+    # Convert to final arrays using float32
+    particles_arr = np.array(particles, dtype=np.float32)
+    fines_arr = np.array(fine_particles, dtype=np.float32)
     all_particles = np.concatenate([particles_arr, fines_arr])
 
     return all_particles
@@ -55,9 +71,8 @@ def calculate_distribution(all_particles, num_bin=50, weight_type='surface'):
     else:
         weights = np.pi * diameters**2
 
-    hist, _ = np.histogram(log_size, bins=bins, weights=weights)
-    density = hist / hist.sum() if weights is not None else hist / len(all_particles)
-    return bin_centers, density
+    hist, _ = np.histogram(log_size, bins=bins, weights=weights, density=True)
+    return bin_centers, hist
 
 def coffee_beans(num_beans=150, mean_diameter=4.2, std_dev=0.5, display=False):
     diameters = np.random.normal(mean_diameter, std_dev, num_beans)

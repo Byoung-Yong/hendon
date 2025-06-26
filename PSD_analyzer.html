@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSD Analyzer - Hendon's Coffee Research Group (Legend Size Fix)</title>
+    <!-- Tailwind & Chart.js -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body{font-family:'Inter',sans-serif;background-color:#f1f5f9;}
+        .fit-results-table{width:100%;border-collapse:collapse;font-size:0.875rem;}
+        .fit-results-table th,.fit-results-table td{border:1px solid #e2e8f0;padding:10px;text-align:left;}
+        .fit-results-table th{background-color:#f8fafc;}
+        .fit-results-table tr:nth-child(even){background-color:#f8fafc;}
+    </style>
+</head>
+<body class="text-slate-800 flex flex-col items-center min-h-screen p-4 sm:p-6">
+
+<div class="w-full max-w-7xl bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+
+<header class="text-center p-8 bg-gradient-to-b from-blue-800 to-blue-500 text-white">
+    <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">Hendon's Coffee Research Group</h1>
+    <p class="mt-2 text-lg text-blue-100">Particle Size Distribution (PSD) Analyzer</p>
+</header>
+
+<main class="grid grid-cols-1 md:grid-cols-3 gap-8 p-6 sm:p-8">
+
+    <!-- ─────────────────────────  LEFT  ────────────────────────── -->
+    <div class="md:col-span-1 flex flex-col gap-8">
+        <!-- Data Input -->
+        <div class="flex flex-col">
+            <h2 class="text-xl font-semibold text-blue-800 mb-4">Data Input</h2>
+            <label for="dataInput" class="block text-sm font-medium text-slate-700 mb-2">Paste your data in Size (µm), Distribution format:</label>
+            <textarea id="dataInput" rows="10" class="w-full p-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow duration-200 shadow-sm" placeholder="Example:&#10;10, 2&#10;100, 25&#10;500, 18">10, 0
+11.481536, 1.10099
+13.182567, 2.355036667
+15.135612, 3.666760667
+17.378008, 4.953392667
+19.952623, 6.000833667
+22.908677, 6.683302333
+26.30268, 6.928162
+30.199517, 6.738784
+34.673685, 6.193543333
+39.810717, 5.433741
+45.708819, 4.620944667
+52.480746, 3.911284333
+60.255959, 3.420793333
+69.183097, 3.200315667
+79.432823, 3.235170667
+91.201084, 3.448564333
+104.712855, 3.721858667
+120.226443, 3.935634667
+138.038426, 3.986896667
+158.489319, 3.821926667
+181.970086, 3.446172667
+208.929613, 2.897496333
+239.883292, 2.270931667
+275.42287, 1.635006333
+316.227766, 1.077221667
+363.078055, 0.628238333
+416.869382, 0.316192667
+478.630092, 0.110836333
+549.540874, 0.017934
+630.957344, 0</textarea>
+        </div>
+
+        <!-- Fit options -->
+        <div>
+            <h2 class="text-xl font-semibold text-blue-800 mb-4">Curve Fitting Options</h2>
+            <fieldset class="space-y-2">
+                <label for="2-peak-fit" class="flex items-center p-3 rounded-lg has-[:checked]:bg-blue-50 has-[:checked]:ring-2 has-[:checked]:ring-blue-200 transition-all cursor-pointer">
+                    <input id="2-peak-fit" type="radio" name="fit-type" value="2-peak" class="h-4 w-4 text-blue-600 border-slate-400 focus:ring-blue-500" checked>
+                    <span class="ml-3 block text-sm font-medium text-slate-700">2-Peak Gaussian Fit</span>
+                </label>
+                <label for="3-peak-fit" class="flex items-center p-3 rounded-lg has-[:checked]:bg-blue-50 has-[:checked]:ring-2 has-[:checked]:ring-blue-200 transition-all cursor-pointer">
+                    <input id="3-peak-fit" type="radio" name="fit-type" value="3-peak" class="h-4 w-4 text-blue-600 border-slate-400 focus:ring-blue-500">
+                    <span class="ml-3 block text-sm font-medium text-slate-700">3-Peak Gaussian Fit</span>
+                </label>
+            </fieldset>
+        </div>
+
+        <!-- Fit results -->
+        <div class="mt-auto min-h-[190px]">
+            <h2 class="text-xl font-semibold text-blue-800 mb-4">Fitting Results</h2>
+            <div id="fit-results-content"></div>
+        </div>
+    </div>
+
+    <!-- ─────────────────────────  RIGHT  ────────────────────────── -->
+    <div class="md:col-span-2 flex flex-col">
+        <h2 id="plotTitle" class="text-xl font-semibold text-blue-800 mb-4 text-center">PSD Plot</h2>
+        <div class="relative w-full flex-grow bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-inner">
+            <canvas id="myChart"></canvas>
+        </div>
+    </div>
+</main>
+</div>
+
+<script>
+/* ───────────────────────── Gaussian helpers ───────────────────────── */
+function gaussianFunction(x, amplitude, mean, sigma) {
+    return amplitude * Math.exp(-Math.pow(x - mean, 2) / (2 * Math.pow(sigma, 2)));
+}
+function gaussianSum(x, params) {
+    let tot = 0;
+    for (let i = 0; i < params.length; i += 3) tot += gaussianFunction(x, params[i], params[i+1], params[i+2]);
+    return tot;
+}
+function leastSquares(params, xData, yData) {
+    return xData.reduce((s, x, i) => {
+        const d = yData[i] - gaussianSum(x, params);
+        return s + d*d;
+    }, 0);
+}
+function nelderMead(f, start, maxIter = 2000, tol = 1e-7){
+    const n = start.length,a=1,g=2,r=0.5,s=0.5;
+    let simplex=[start];
+    for(let i=0;i<n;i++){let p=[...start];p[i]=p[i]!==0?p[i]*1.05:0.001;simplex.push(p);}    
+    let vals=simplex.map(f);
+    for(let iter=0;iter<maxIter;iter++){
+        const idx=[...vals.keys()].sort((i,j)=>vals[i]-vals[j]);
+        simplex=idx.map(i=>simplex[i]);vals=idx.map(i=>vals[i]);
+        if(Math.abs(vals[n]-vals[0])<tol) break;
+        const centroid=Array(n).fill(0);
+        for(let i=0;i<n;i++) for(let j=0;j<n;j++) centroid[j]+=simplex[i][j]/n;
+        const reflect=centroid.map((c,i)=>c+a*(c-simplex[n][i]));
+        const fRef=f(reflect);
+        if(vals[0]<=fRef&&fRef<vals[n-1]){simplex[n]=reflect;vals[n]=fRef;continue;}
+        if(fRef<vals[0]){
+            const expand=centroid.map((c,i)=>c+g*(reflect[i]-c));
+            const fExp=f(expand);
+            simplex[n]=fExp<fRef?expand:reflect;vals[n]=Math.min(fExp,fRef);continue;
+        }
+        const contract=centroid.map((c,i)=>c+r*(simplex[n][i]-c));
+        const fCon=f(contract);
+        if(fCon<vals[n]){simplex[n]=contract;vals[n]=fCon;continue;}
+        for(let i=1;i<=n;i++){simplex[i]=simplex[i].map((p,j)=>simplex[0][j]+s*(p-simplex[0][j]));vals[i]=f(simplex[i]);}
+    }
+    return simplex[0];
+}
+/* ───────────────────────── UI elements ───────────────────────── */
+const dataInput=document.getElementById('dataInput');
+const fitOptions=document.querySelectorAll('input[name="fit-type"]');
+const fitResultsContent=document.getElementById('fit-results-content');
+const plotTitle=document.getElementById('plotTitle');
+const ctx=document.getElementById('myChart').getContext('2d');
+let chartInstance=null;
+
+function findInitialGuesses(data,numPeaks){
+    if(data.x.length<3) return null;
+    let residual=[...data.y];const guess=[];
+    for(let i=0;i<numPeaks;i++){
+        if(residual.every(y=>y<=0)) break;
+        const maxY=Math.max(...residual);const idx=residual.indexOf(maxY);if(idx===-1) break;
+        const amp=maxY,mean=data.x[idx];
+        const half=maxY/2;let i1=idx,i2=idx;
+        while(i1>0&&residual[i1]>half) i1--;while(i2<residual.length-1&&residual[i2]>half) i2++;
+        const width=data.x[i2]-data.x[i1];let sigma=width/2.355;if(!sigma||sigma<=0) sigma=0.15;
+        guess.push(amp,mean,sigma);
+        for(let j=0;j<residual.length;j++) residual[j]-=gaussianFunction(data.x[j],amp,mean,sigma);
+    }
+    return guess.length===numPeaks*3?guess:null;
+}
+
+function plotGraph(){
+    if(chartInstance) chartInstance.destroy();
+    const raw=dataInput.value.trim();
+    const numPeaks=document.querySelector('input[name="fit-type"]:checked').value==='2-peak'?2:3;
+    if(!raw){displayFitResults(null,numPeaks);return;}
+
+    const lines=raw.split('\n');
+    const pts=[];const fit={x:[],y:[]};
+    lines.forEach(l=>{
+        const parts=l.replace(/[,;\s\t]+/g,' ').trim().split(/\s+/);
+        if(parts.length===2){const x=parseFloat(parts[0]),y=parseFloat(parts[1]);if(!isNaN(x)&&!isNaN(y)&&x>0){pts.push({x,y});if(y>0){fit.x.push(Math.log10(x));fit.y.push(y);}}}
+    });
+    if(!pts.length) return;
+
+    const datasets=[{
+        label:'Distribution Data',
+        data:pts,
+        backgroundColor:'rgba(0,0,0,0.7)',
+        borderColor:'rgba(0,0,0,0.7)',
+        showLine:false,
+        pointRadius:3,
+        pointHoverRadius:5,
+        pointStyle:'circle'
+    }];
+
+    plotTitle.textContent='Particle Size Distribution';
+
+    const guess=findInitialGuesses(fit,numPeaks);
+    if(guess){
+        try{
+            const cost=p=>leastSquares(p,fit.x,fit.y);
+            const params=nelderMead(cost,guess);
+            if(params.some(p=>!isFinite(p))) throw new Error('non-finite');
+            const minX=Math.min(...pts.map(p=>p.x).filter(x=>x>0));
+            const maxX=Math.max(...pts.map(p=>p.x));
+            const total=[];
+            for(let i=0;i<200;i++){const x=minX*Math.pow(maxX/minX,i/199); total.push({x,y:gaussianSum(Math.log10(x),params)});}
+            datasets.push({
+                label:'Total Fit',
+                data:total,
+                borderColor:'rgba(239,68,68,1)',
+                borderWidth:3,
+                pointRadius:0,
+                showLine:true,
+                fill:false,
+                pointStyle:'line'
+            });
+            const colors=['rgba(59,130,246,0.8)','rgba(34,197,94,0.8)','rgba(249,115,22,0.8)'];
+            for(let p=0;p<numPeaks;p++){
+                const pk=params.slice(p*3,p*3+3);const line=[];
+                for(let i=0;i<200;i++){const x=minX*Math.pow(maxX/minX,i/199); line.push({x,y:gaussianFunction(Math.log10(x),...pk)});}    
+                datasets.push({
+                    label:`Peak ${p+1}`,
+                    data:line,
+                    borderColor:colors[p%colors.length],
+                    borderWidth:3,
+                    borderDash:[5,5],
+                    pointRadius:0,
+                    showLine:true,
+                    fill:false,
+                    pointStyle:'line'
+                });
+            }
+            displayFitResults(params,numPeaks);
+        }catch(e){console.error(e);displayFitResults(null,numPeaks,true);}            
+    }else{displayFitResults(null,numPeaks,true);}    
+
+    chartInstance=new Chart(ctx,{type:'scatter',data:{datasets},options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:{duration:0},
+        scales:{
+            x:{type:'logarithmic',position:'bottom',title:{display:true,text:'Size (µm)',font:{size:16,weight:'bold'}},ticks: { font: { size: 14 } }},
+            y:{type:'linear',beginAtZero:true,title:{display:true,text:'Distribution',font:{size:16,weight:'bold'}},ticks: { font: { size: 14 } }}
+        },
+        plugins:{
+            legend:{
+                display:true,
+                labels:{
+                    usePointStyle:true,
+                    boxWidth:10,   // ↓ shrink legend marker
+                    boxHeight:5,
+                    font: { size: 14 } 
+                }
+            },
+            tooltip:{
+                callbacks:{
+                    label(ctx){const l=ctx.dataset.label||'';return `${l}: (Size: ${ctx.parsed.x.toFixed(2)} µm, Dist: ${ctx.parsed.y.toFixed(3)})`;}
+                }
+            }
+        }
+    }});
+}
+
+function displayFitResults(params,numPeaks,error=false){
+    let html='<table class="fit-results-table"><thead><tr><th>Peak #</th><th>Amplitude</th><th>Mean (µm)</th><th>Std Dev (log)</th></tr></thead><tbody>';
+    if(error||!params){html+='<tr><td colspan="4" class="text-red-600 p-2">Curve fitting failed.</td></tr>';for(let i=0;i<3;i++) html+=`<tr><td>${i+1}</td><td>-</td><td>-</td><td>-</td></tr>`;}else{
+        const pk=[];for(let i=0;i<params.length;i+=3) pk.push(params.slice(i,i+3));pk.sort((a,b)=>a[1]-b[1]);
+        for(let i=0;i<3;i++) if(i<numPeaks&&pk[i]){const [A,M,S]=pk[i];html+=`<tr><td>${i+1}</td><td>${A.toFixed(4)}</td><td>${Math.pow(10,M).toFixed(2)}</td><td>${S.toFixed(4)}</td></tr>`;}else html+=`<tr><td>${i+1}</td><td>-</td><td>-</td><td>-</td></tr>`;
+    }
+    html+='</tbody></table>';fitResultsContent.innerHTML=html;
+}
+
+window.onload=plotGraph;
+dataInput.addEventListener('input',()=>setTimeout(plotGraph,50));
+fitOptions.forEach(r=>r.addEventListener('change',plotGraph));
+</script>
+</body>
+</html>

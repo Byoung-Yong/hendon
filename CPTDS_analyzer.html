@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conductivity / TDS Analyzer</title>
+    <link rel="icon" type="image/png" href="coffee_ico.png">
+    <!-- Tailwind & Chart.js -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+        }
+        .results-table{width:100%;border-collapse:collapse;font-size:1rem;}
+        .results-table th,.results-table td{border:1px solid #e2e8f0;padding:12px;text-align:left;}
+        .results-table th{background-color:#f8fafc;}
+        .results-value { text-align: right; font-weight: 600; font-size: 1.25rem; color: #1e40af; }
+        #myChart { cursor: crosshair; }
+    </style>
+</head>
+<body class="text-slate-800 flex flex-col items-center min-h-screen p-4 sm:p-6">
+
+<!-- Main Analyzer Panel -->
+<div class="w-full max-w-7xl bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+
+    <header class="text-center p-8 bg-gradient-to-b from-yellow-800 to-gray-200 text-white">
+        <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">Conductivity / TDS Measurement</h1>
+        <p class="mt-2 text-lg text-yellow-900">A simple tool to calculate the CPTDS index</p>
+    </header>
+
+    <main class="grid grid-cols-1 md:grid-cols-3 gap-8 p-6 sm:p-8">
+
+        <!-- Left Column: Data Input -->
+        <div class="md:col-span-1 flex flex-col gap-8">
+             <div>
+                <h2 class="text-xl font-semibold text-yellow-800 mb-4">Data Input</h2>
+                <div class="flex flex-col flex-grow">
+                    <label for="dataInput" class="block text-sm font-medium text-slate-700 mb-2">Paste your data.</label>
+                    <textarea id="dataInput" class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow duration-200 shadow-sm flex-grow" rows="10" placeholder="TDS, conductivity&#10;2.3, 3.52">3.2, 4.69
+2.3, 3.52
+1.63, 2.57
+0.99, 1.493
+0.64, 1.059
+0.51, 0.897
+0.44, 0.789
+0.32, 0.614
+0.24, 0.493
+0.2, 0.414
+0.15, 0.325</textarea>
+                </div>
+            </div>
+            
+            <!-- Results Panel (Moved) -->
+            <div>
+                 <h2 class="text-xl font-semibold text-yellow-800 mb-4">Analysis Results</h2>
+                 <table class="results-table rounded-lg overflow-hidden shadow">
+                     <tbody>
+                         <tr>
+                             <td>Slope</td>
+                             <td id="slope-result" class="results-value">-</td>
+                         </tr>
+                         <tr>
+                             <td>Intercept</td>
+                             <td id="intercept-result" class="results-value">-</td>
+                         </tr>
+                         <tr>
+                             <td>Index</td>
+                             <td id="index-result" class="results-value">-</td>
+                         </tr>
+                     </tbody>
+                 </table>
+            </div>
+        </div>
+
+        <!-- Right Column (Chart) -->
+        <div class="md:col-span-2 flex flex-col">
+            <h2 id="plotTitle" class="text-xl font-semibold text-yellow-800 mb-4 text-center">Conductivity/TDS vs. √TDS</h2>
+            <div class="relative w-full flex-grow bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-inner min-h-[300px]">
+                <canvas id="myChart"></canvas>
+            </div>
+        </div>
+    </main>
+
+</div>
+
+<script>
+// --- UI elements ---
+const dataInput = document.getElementById('dataInput');
+const slopeResult = document.getElementById('slope-result');
+const interceptResult = document.getElementById('intercept-result');
+const indexResult = document.getElementById('index-result');
+const canvas = document.getElementById('myChart');
+const ctx = canvas.getContext('2d');
+let chartInstance = null;
+
+// --- State for interactive selection ---
+let isDragging = false;
+let selectionRect = { startX: 0, endX: 0 };
+let selectionRange = { min: null, max: null };
+
+/**
+ * Calculates linear regression statistics for a set of data points.
+ */
+function calculateLinearRegression(dataPoints) {
+    if (dataPoints.length < 2) return { slope: 0, intercept: 0, rSquared: 0 };
+    const n = dataPoints.length;
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    dataPoints.forEach(p => { sumX += p.x; sumY += p.y; sumXY += p.x * p.y; sumX2 += p.x * p.x; });
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+    let ssTot = 0, ssRes = 0;
+    const yMean = sumY / n;
+    dataPoints.forEach(p => {
+        const predictedY = slope * p.x + intercept;
+        ssTot += Math.pow(p.y - yMean, 2);
+        ssRes += Math.pow(p.y - predictedY, 2);
+    });
+    const rSquared = (ssTot === 0) ? 1 : 1 - (ssRes / ssTot);
+    return { slope, intercept, rSquared };
+}
+
+/**
+ * Custom Chart.js plugin to draw the selection rectangle.
+ */
+const selectionPlugin = {
+    id: 'selectionPlugin',
+    afterDraw: (chart) => {
+        if (isDragging) {
+            const { ctx, chartArea } = chart;
+            ctx.save();
+            ctx.fillStyle = 'rgba(100, 116, 139, 0.2)'; // slate-500 with opacity
+            const rectX = Math.min(selectionRect.startX, selectionRect.endX);
+            const rectWidth = Math.abs(selectionRect.endX - selectionRect.startX);
+            ctx.fillRect(rectX, chartArea.top, rectWidth, chartArea.height);
+            ctx.restore();
+        }
+    }
+};
+Chart.register(selectionPlugin);
+
+
+/**
+ * Parses data, calculates, and plots everything.
+ */
+function analyzeAndPlot() {
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+
+    const rawData = dataInput.value.trim();
+    if (!rawData) {
+        slopeResult.textContent = '-';
+        interceptResult.textContent = '-';
+        indexResult.textContent = '-';
+        return;
+    }
+
+    const lines = rawData.split('\n');
+    const allDataPoints = [];
+    
+    lines.forEach(line => {
+        const parts = line.replace(/[,;\s\t]+/g, ' ').trim().split(/\s+/);
+        if (parts.length === 2) {
+            const tds = parseFloat(parts[0]);
+            const conductivity = parseFloat(parts[1]);
+            if (!isNaN(tds) && !isNaN(conductivity) && tds > 0 && conductivity !== 0) {
+                allDataPoints.push({ x: Math.sqrt(tds), y: conductivity / tds });
+            }
+        }
+    });
+
+    if (allDataPoints.length === 0) return;
+
+    // Filter points based on selection
+    const pointsForFitting = selectionRange.min === null ? 
+        [...allDataPoints] : 
+        allDataPoints.filter(p => p.x >= selectionRange.min && p.x <= selectionRange.max);
+
+    // Style points based on whether they are in the fitting range
+    const pointBackgroundColors = allDataPoints.map(p => 
+        (selectionRange.min === null || (p.x >= selectionRange.min && p.x <= selectionRange.max)) ?
+        'rgba(45, 85, 155, 0.7)' : 'rgba(156, 163, 175, 0.5)');
+
+    const datasets = [{
+        label: 'Data Points',
+        data: allDataPoints,
+        backgroundColor: pointBackgroundColors,
+        borderColor: pointBackgroundColors,
+        pointRadius: 5,
+        type: 'scatter'
+    }];
+
+    const regression = calculateLinearRegression(pointsForFitting);
+    if (pointsForFitting.length >= 2) {
+        const fittingXValues = pointsForFitting.map(p => p.x);
+        const minX = Math.min(...fittingXValues);
+        const maxX = Math.max(...fittingXValues);
+        datasets.push({
+            label: 'Trendline',
+            data: [{ x: minX, y: regression.slope * minX + regression.intercept }, { x: maxX, y: regression.slope * maxX + regression.intercept }],
+            borderColor: 'rgba(220, 38, 38, 0.8)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            pointRadius: 0,
+            type: 'line'
+        });
+    }
+
+    // Display new results
+    slopeResult.textContent = regression.slope ? regression.slope.toFixed(4) : '-';
+    interceptResult.textContent = regression.intercept ? regression.intercept.toFixed(4) : '-';
+    
+    if (regression.slope && regression.intercept && regression.slope !== 0) {
+        const indexValue = Math.pow(regression.intercept, 3) / Math.pow(regression.slope, 2);
+        indexResult.textContent = indexValue.toFixed(4);
+    } else {
+        indexResult.textContent = '-';
+    }
+    
+    chartInstance = new Chart(ctx, {
+        data: { datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 },
+            scales: {
+                x: { type: 'linear', title: { display: true, text: '√TDS', font: { size: 16, weight: 'bold' } } },
+                y: { type: 'linear', title: { display: true, text: 'Conductivity / TDS', font: { size: 16, weight: 'bold' } } }
+            },
+            plugins: {
+                legend: {
+                    display: false, 
+                    labels: {
+                       generateLabels: (chart) => {
+                            const labels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                            labels.forEach(label => {
+                                if (label.text === 'Trendline') {
+                                    label.pointStyle = 'line';
+                                    label.borderDash = [0, 0];
+                                } else if (label.text === 'Data Points') {
+                                    label.pointStyle = 'circle';
+                                }
+                            });
+                            return labels.filter(l => l.text === 'Data Points' || l.text === 'Trendline');
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: { label: (c) => `(√TDS: ${c.parsed.x.toFixed(3)}, Cond/TDS: ${c.parsed.y.toFixed(3)})` }
+                }
+            }
+        }
+    });
+}
+
+// --- Event Listeners ---
+canvas.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    selectionRect.startX = e.offsetX;
+    selectionRect.endX = e.offsetX;
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+        selectionRect.endX = e.offsetX;
+        chartInstance.update('none'); // Redraw chart without animation to show selection
+    }
+});
+
+canvas.addEventListener('mouseup', (e) => {
+    if (isDragging) {
+        isDragging = false;
+        const scale = chartInstance.scales.x;
+        const startVal = scale.getValueForPixel(selectionRect.startX);
+        const endVal = scale.getValueForPixel(selectionRect.endX);
+        selectionRange.min = Math.min(startVal, endVal);
+        selectionRange.max = Math.max(startVal, endVal);
+        analyzeAndPlot(); // Final redraw with updated fitting
+    }
+});
+
+canvas.addEventListener('dblclick', () => {
+    selectionRange.min = null;
+    selectionRange.max = null;
+    analyzeAndPlot();
+});
+
+dataInput.addEventListener('input', () => setTimeout(() => {
+    // When data is changed, reset the selection to the default
+    selectionRange.min = 0.4;
+    selectionRange.max = 1.0;
+    analyzeAndPlot();
+}, 50));
+
+window.onload = () => {
+    // Set default selection range on initial load
+    selectionRange.min = 0.4;
+    selectionRange.max = 1.0;
+    analyzeAndPlot();
+};
+
+</script>
+</body>
+</html>

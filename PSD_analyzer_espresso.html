@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSD Analyzer - Hendon's Coffee Research Group (2-Peak)</title>
+    <!-- Tailwind & Chart.js -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body{font-family:'Inter',sans-serif;background-color:#f1f5f9;}
+        .fit-results-table{width:100%;border-collapse:collapse;font-size:0.875rem;}
+        .fit-results-table th,.fit-results-table td{border:1px solid #e2e8f0;padding:10px;text-align:left;}
+        .fit-results-table th{background-color:#f8fafc;}
+        .fit-results-table tr:nth-child(even){background-color:#f8fafc;}
+        .results-value { text-align: right; font-weight: 500; }
+    </style>
+</head>
+<body class="text-slate-800 flex flex-col items-center min-h-screen p-4 sm:p-6">
+
+<!-- Main Analyzer Panel -->
+<div class="w-full max-w-7xl bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+
+    <header class="text-center p-8 bg-gradient-to-b from-blue-800 to-blue-500 text-white">
+        <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">Hendon's Coffee Research Group</h1>
+        <p class="mt-2 text-lg text-blue-100">Particle Size Distribution (PSD) Analyzer - Espresso Grind</p>
+    </header>
+
+    <main class="grid grid-cols-1 md:grid-cols-3 gap-8 p-6 sm:p-8">
+
+        <!-- Left Column -->
+        <div class="md:col-span-1 flex flex-col gap-8">
+            <!-- Data Input -->
+            <div class="flex flex-col">
+                <h2 class="text-xl font-semibold text-blue-800 mb-4">Data Input</h2>
+                <label for="dataInput" class="block text-sm font-medium text-slate-700 mb-2">Paste your data in Size (µm), Distribution format:</label>
+                <textarea id="dataInput" rows="10" class="w-full p-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow duration-200 shadow-sm" placeholder="Example:&#10;10, 2&#10;100, 25&#10;500, 18">10, 0
+11.481536, 1.10099
+13.182567, 2.355036667
+15.135612, 3.666760667
+17.378008, 4.953392667
+19.952623, 6.000833667
+22.908677, 6.683302333
+26.30268, 6.928162
+30.199517, 6.738784
+34.673685, 6.193543333
+39.810717, 5.433741
+45.708819, 4.620944667
+52.480746, 3.911284333
+60.255959, 3.420793333
+69.183097, 3.200315667
+79.432823, 3.235170667
+91.201084, 3.448564333
+104.712855, 3.721858667
+120.226443, 3.935634667
+138.038426, 3.986896667
+158.489319, 3.821926667
+181.970086, 3.446172667
+208.929613, 2.897496333
+239.883292, 2.270931667
+275.42287, 1.635006333
+316.227766, 1.077221667
+363.078055, 0.628238333
+416.869382, 0.316192667
+478.630092, 0.110836333
+549.540874, 0.017934
+630.957344, 0</textarea>
+            </div>
+
+            <!-- Fit results -->
+            <div class="mt-auto min-h-[190px]">
+                <h2 class="text-xl font-semibold text-blue-800 mb-4">Fit Parameters</h2>
+                <div id="fit-results-content"></div>
+            </div>
+        </div>
+
+        <!-- Right Column (Chart) -->
+        <div class="md:col-span-2 flex flex-col">
+            <h2 id="plotTitle" class="text-xl font-semibold text-blue-800 mb-4 text-center">PSD Plot</h2>
+            <div class="relative w-full flex-grow bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-inner">
+                <canvas id="myChart"></canvas>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- New Full-Width Panel -->
+<div class="w-full max-w-7xl bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden mt-8">
+    <div class="p-6 sm:p-8">
+        <h2 class="text-xl font-semibold text-blue-800 mb-4">Advanced Model Analysis</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Left: Input -->
+            <div class="md:col-span-1">
+                <h3 class="text-lg font-semibold text-slate-800 mb-2">Mean volume of coffee beans</h3>
+                <div class="flex items-center mt-1">
+                    <input type="number" id="meanBeanVolume" value="260" class="block w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    <span class="ml-2 text-slate-600">(mm³)</span>
+                </div>
+            </div>
+            <!-- Right: Calculation Results -->
+            <div class="md:col-span-2">
+                 <h3 class="text-lg font-semibold text-slate-800 mb-2">Descriptors</h3>
+                 <table class="fit-results-table">
+                     <tbody>
+                         <tr>
+                             <td class="w-1/2">Hypothetical cuts (<i>n</i>)</td>
+                             <td id="hypothetical-cuts-result" class="results-value">-</td>
+                         </tr>
+                         <tr>
+                             <td class="w-1/2">Split-ratio (<i>&alpha;</i>)</td>
+                             <td id="split-ratio-result" class="results-value">-</td>
+                         </tr>
+                         <tr>
+                             <td class="w-1/2">Fines generation-rate (<i>&epsilon;</i>)</td>
+                             <td id="fines-generation-rate-result" class="results-value">-</td>
+                         </tr>
+                     </tbody>
+                 </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+/* ───────────────────────── Gaussian helpers ───────────────────────── */
+function gaussianFunction(x, amplitude, mean, sigma) {
+    return amplitude * Math.exp(-Math.pow(x - mean, 2) / (2 * Math.pow(sigma, 2)));
+}
+function gaussianSum(x, params) {
+    let tot = 0;
+    for (let i = 0; i < params.length; i += 3) tot += gaussianFunction(x, params[i], params[i+1], params[i+2]);
+    return tot;
+}
+function leastSquares(params, xData, yData) {
+    return xData.reduce((s, x, i) => {
+        const d = yData[i] - gaussianSum(x, params);
+        return s + d*d;
+    }, 0);
+}
+function nelderMead(f, start, maxIter = 2000, tol = 1e-7){
+    const n = start.length,a=1,g=2,r=0.5,s=0.5;
+    let simplex=[start];
+    for(let i=0;i<n;i++){let p=[...start];p[i]=p[i]!==0?p[i]*1.05:0.001;simplex.push(p);}    
+    let vals=simplex.map(f);
+    for(let iter=0;iter<maxIter;iter++){
+        const idx=[...vals.keys()].sort((i,j)=>vals[i]-vals[j]);
+        simplex=idx.map(i=>simplex[i]);vals=idx.map(i=>vals[i]);
+        if(Math.abs(vals[n]-vals[0])<tol) break;
+        const centroid=Array(n).fill(0);
+        for(let i=0;i<n;i++) for(let j=0;j<n;j++) centroid[j]+=simplex[i][j]/n;
+        const reflect=centroid.map((c,i)=>c+a*(c-simplex[n][i]));
+        const fRef=f(reflect);
+        if(vals[0]<=fRef&&fRef<vals[n-1]){simplex[n]=reflect;vals[n]=fRef;continue;}
+        if(fRef<vals[0]){
+            const expand=centroid.map((c,i)=>c+g*(reflect[i]-c));
+            const fExp=f(expand);
+            simplex[n]=fExp<fRef?expand:reflect;vals[n]=Math.min(fExp,fRef);continue;
+        }
+        const contract=centroid.map((c,i)=>c+r*(simplex[n][i]-c));
+        const fCon=f(contract);
+        if(fCon<vals[n]){simplex[n]=contract;vals[n]=fCon;continue;}
+        for(let i=1;i<=n;i++){simplex[i]=simplex[i].map((p,j)=>simplex[0][j]+s*(p-simplex[0][j]));vals[i]=f(simplex[i]);}
+    }
+    return simplex[0];
+}
+/* ───────────────────────── UI elements & State ───────────────────────── */
+const dataInput = document.getElementById('dataInput');
+const fitResultsContent = document.getElementById('fit-results-content');
+const plotTitle = document.getElementById('plotTitle');
+const ctx = document.getElementById('myChart').getContext('2d');
+const meanBeanVolumeInput = document.getElementById('meanBeanVolume');
+const hypotheticalCutsResult = document.getElementById('hypothetical-cuts-result');
+const splitRatioResult = document.getElementById('split-ratio-result');
+const finesRateResult = document.getElementById('fines-generation-rate-result');
+
+let chartInstance = null;
+let volumeFitParams = null; // Store the fit parameters from volume distribution for advanced calculations
+
+function findInitialGuesses(data,numPeaks){
+    if(data.x.length<3) return null;
+    let residual=[...data.y];const guess=[];
+    for(let i=0;i<numPeaks;i++){
+        if(residual.every(y=>y<=0)) break;
+        const maxY=Math.max(...residual);const idx=residual.indexOf(maxY);if(idx===-1) break;
+        const amp=maxY,mean=data.x[idx];
+        const half=maxY/2;let i1=idx,i2=idx;
+        while(i1>0&&residual[i1]>half) i1--;while(i2<residual.length-1&&residual[i2]>half) i2++;
+        const width=data.x[i2]-data.x[i1];let sigma=width/2.355;if(!sigma||sigma<=0) sigma=0.15;
+        guess.push(amp,mean,sigma);
+        for(let j=0;j<residual.length;j++) residual[j]-=gaussianFunction(data.x[j],amp,mean,sigma);
+    }
+    return guess.length===numPeaks*3?guess:null;
+}
+
+function plotGraph(){
+    if(chartInstance) chartInstance.destroy();
+    const raw=dataInput.value.trim();
+    const numPeaks = 2;
+    
+    volumeFitParams = null; 
+
+    if(!raw){
+        displayFitResults(null, numPeaks);
+        calculateAndDisplaySecondaryMetrics();
+        return;
+    }
+
+    const lines=raw.split('\n');
+    const surfaceAreaPts = [];
+    const volumeFitData = { x: [], y: [] };
+    const surfaceFitData = { x: [], y: [] };
+
+    // Parse input data (diameter, surface area) and prepare two datasets
+    lines.forEach(l=>{
+        const parts=l.replace(/[,;\s\t]+/g,' ').trim().split(/\s+/);
+        if(parts.length===2){
+            const d=parseFloat(parts[0]); // diameter
+            const s_d=parseFloat(parts[1]); // surface area distribution value
+            if(!isNaN(d) && !isNaN(s_d) && d > 0){
+                surfaceAreaPts.push({x: d, y: s_d});
+                
+                // For Surface Area fit (display)
+                if (s_d > 0) {
+                    surfaceFitData.x.push(Math.log10(d));
+                    surfaceFitData.y.push(s_d);
+                }
+
+                // For Volume fit (advanced calculations)
+                const v_d = s_d * d / 6.0;
+                if (v_d > 0) {
+                    volumeFitData.x.push(Math.log10(d));
+                    volumeFitData.y.push(v_d);
+                }
+            }
+        }
+    });
+
+    if(!surfaceAreaPts.length) return;
+
+    const datasets=[{
+        label:'Distribution Data',
+        data: surfaceAreaPts,
+        backgroundColor:'rgba(0,0,0,0.7)',
+        borderColor:'rgba(0,0,0,0.7)',
+        showLine:false,
+        pointRadius:3,
+        pointHoverRadius:5,
+        pointStyle:'circle'
+    }];
+
+    plotTitle.textContent='PSD Plot';
+
+    // --- Perform Fit on Surface Area Data (for display) ---
+    let surfaceFitParams = null;
+    const surfaceGuess = findInitialGuesses(surfaceFitData, numPeaks);
+    if(surfaceGuess){
+        try {
+            const surfaceCost = p => leastSquares(p, surfaceFitData.x, surfaceFitData.y);
+            surfaceFitParams = nelderMead(surfaceCost, surfaceGuess);
+        } catch(e) {
+            console.error("Surface area fit failed:", e);
+        }
+    }
+
+    // --- Perform Fit on Volume Data (for internal calculations) ---
+    const volumeGuess = findInitialGuesses(volumeFitData, numPeaks);
+    if(volumeGuess){
+        try{
+            const volumeCost = p => leastSquares(p, volumeFitData.x, volumeFitData.y);
+            volumeFitParams = nelderMead(volumeCost, volumeGuess); // Store for advanced calcs
+        }catch(e){
+            console.error("Volume fit failed:", e);
+            volumeFitParams = null;
+        }            
+    }
+
+    // Display results and curves based on the surface area fit
+    if (surfaceFitParams) {
+        const minX=Math.min(...surfaceAreaPts.map(p=>p.x).filter(x=>x>0));
+        const maxX=Math.max(...surfaceAreaPts.map(p=>p.x));
+        
+        // Generate total fit curve from surface area fit
+        const totalFitLine = [];
+        for(let i=0; i<200; i++){
+            const x = minX*Math.pow(maxX/minX, i/199); 
+            const y_surf = gaussianSum(Math.log10(x), surfaceFitParams);
+            if (isFinite(y_surf)) totalFitLine.push({x: x, y: y_surf});
+        }
+        datasets.push({
+            label:'Total Fit',
+            data: totalFitLine,
+            borderColor:'rgba(239,68,68,1)',
+            borderWidth:3,
+            pointRadius:0,
+            showLine:true,
+            fill:false,
+            pointStyle:'line'
+        });
+
+        // Generate individual peak curves from surface area fit
+        const colors=['rgba(59,130,246,0.8)','rgba(34,197,94,0.8)'];
+        for(let p=0; p<numPeaks; p++){
+            const pk = surfaceFitParams.slice(p*3, p*3+3);
+            const peakLine = [];
+            for(let i=0; i<200; i++){
+                const x = minX*Math.pow(maxX/minX,i/199); 
+                const y_surf = gaussianFunction(Math.log10(x),...pk);
+                 if (isFinite(y_surf)) peakLine.push({x: x, y: y_surf});
+            }    
+            datasets.push({
+                label:`Peak ${p+1}`,
+                data: peakLine,
+                borderColor:colors[p%colors.length],
+                borderWidth:3,
+                borderDash:[5,5],
+                pointRadius:0,
+                showLine:true,
+                fill:false,
+                pointStyle:'line'
+            });
+        }
+    }
+    
+    displayFitResults(surfaceFitParams, numPeaks, !surfaceFitParams);
+    calculateAndDisplaySecondaryMetrics(); // This will use volumeFitParams internally
+
+    chartInstance=new Chart(ctx,{type:'scatter',data:{datasets},options:{
+        responsive:true,
+        maintainAspectRatio:false,
+        animation:{duration:0},
+        scales:{
+            x:{type:'logarithmic',position:'bottom',title:{display:true,text:'Size (µm)',font:{size:16,weight:'bold'}},ticks: { font: { size: 14 } }},
+            y:{type:'linear',position:'left',title:{display:true,text:'Distribution',font:{size:16,weight:'bold'}},ticks: { font: { size: 14 } }}
+        },
+        plugins:{
+            legend:{
+                display:true,
+                labels:{ usePointStyle:true, boxWidth:10, boxHeight:5, font: { size: 14 } }
+            },
+            tooltip:{
+                callbacks:{
+                    label(ctx){const l=ctx.dataset.label||'';return `${l}: (Size: ${ctx.parsed.x.toFixed(2)} µm, Dist: ${ctx.parsed.y.toFixed(3)})`;}
+                }
+            }
+        }
+    }});
+}
+
+function displayFitResults(params,numPeaks,error=false){
+    let html='<table class="fit-results-table"><thead><tr><th>Peak #</th><th>Amplitude</th><th>Mean (µm)</th><th>Std Dev (log)</th></tr></thead><tbody>';
+    if(error||!params){
+        html+='<tr><td colspan="4" class="text-red-600 p-2">Curve fitting failed.</td></tr>';
+        for(let i=0;i<numPeaks;i++) html+=`<tr><td>${i+1}</td><td>-</td><td>-</td><td>-</td></tr>`;
+    }else{
+        const pk=[];for(let i=0;i<params.length;i+=3) pk.push(params.slice(i,i+3));pk.sort((a,b)=>a[1]-b[1]);
+        for(let i=0;i<numPeaks;i++) {
+            if(pk[i]){
+                const [A,M,S]=pk[i];
+                html+=`<tr><td>${i+1}</td><td>${A.toFixed(3)}</td><td>${Math.pow(10,M).toFixed(2)}</td><td>${S.toFixed(4)}</td></tr>`;
+            } else {
+                html+=`<tr><td>${i+1}</td><td>-</td><td>-</td><td>-</td></tr>`;
+            }
+        }
+    }
+    html+='</tbody></table>';fitResultsContent.innerHTML=html;
+}
+
+// ───────────────── NEW MODEL CALCULATION FUNCTIONS ─────────────────
+function mu_a(a) {
+    if (a <= 0 || a >= 0.5) return NaN;
+    const one_minus_a = 1 - a;
+    const term1 = one_minus_a * Math.log(one_minus_a);
+    const term2 = a * Math.log(a);
+    return (term1 - term2 - (1 - 2*a)) / (1 - 2*a);
+}
+
+function sigma_sq_a(a) {
+    if (a <= 0 || a >= 0.5) return NaN;
+    const one_minus_a = 1 - a;
+    const integral_ln_r_sq = (r, lnr) => r * lnr * lnr - 2 * r * lnr + 2 * r;
+    const upper = integral_ln_r_sq(one_minus_a, Math.log(one_minus_a));
+    const lower = integral_ln_r_sq(a, Math.log(a));
+    const e_ln_r_sq = (upper - lower) / (1 - 2*a);
+    const mu = mu_a(a);
+    const mu_sq = mu * mu;
+    return e_ln_r_sq - mu_sq;
+}
+
+function bisectionSolver(f, min, max, tolerance = 1e-7, maxIter = 100) {
+    let fMin;
+    try { fMin = f(min); } catch (e) { return null; }
+    let fMax;
+    try { fMax = f(max); } catch (e) { return null; }
+    if (fMin * fMax >= 0) return null;
+    let a = min, b = max, iter = 0;
+    while (iter < maxIter) {
+        let c = (a + b) / 2;
+        let fC;
+        try { fC = f(c); } catch (e) { return (a + b) / 2; }
+        if (Math.abs(fC) < tolerance || (b - a) / 2 < tolerance) return c;
+        if (fC * f(a) < 0) { b = c; } else { a = c; }
+        iter++;
+    }
+    return (a + b) / 2;
+}
+
+function calculateAndDisplaySecondaryMetrics() {
+    hypotheticalCutsResult.textContent = '-';
+    splitRatioResult.textContent = '-';
+    finesRateResult.textContent = '-';
+
+    const V0_mm3 = parseFloat(meanBeanVolumeInput.value);
+
+    // Use volumeFitParams for these calculations
+    if (!volumeFitParams || !isFinite(V0_mm3) || V0_mm3 <= 0) return;
+
+    const pk = [];
+    for (let i = 0; i < volumeFitParams.length; i += 3) pk.push(volumeFitParams.slice(i, i + 3));
+    pk.sort((a, b) => a[1] - b[1]);
+
+    if (pk.length < 2) return; 
+
+    const [A1_fit, M1_log_size, S1_log_size] = pk[0];
+    const [A2_fit, M2_log_size, S2_log_size] = pk[1];
+
+    const LN10 = Math.log(10);
+    const V0_um3 = V0_mm3 * 1e9;
+    const ln_V0 = Math.log(V0_um3);
+    
+    const M_ln_volume_exp = Math.log(Math.PI / 6) + 3 * M2_log_size * LN10;
+    const S_ln_volume_sq_exp = 9 * Math.pow(S2_log_size * LN10, 2);
+
+    const LHS = (M_ln_volume_exp - ln_V0) / S_ln_volume_sq_exp;
+    const funcToSolve = (a) => {
+        const mu = mu_a(a);
+        const sigma_sq = sigma_sq_a(a);
+        if (isNaN(mu) || isNaN(sigma_sq) || sigma_sq === 0) throw new Error("Invalid value in RHS calculation");
+        const RHS = mu / sigma_sq;
+        return LHS - RHS;
+    };
+    const a_solved = bisectionSolver(funcToSolve, 1e-9, 0.5 - 1e-9);
+
+    let n_solved = null;
+    if (a_solved) {
+        const sigma_sq_theory = sigma_sq_a(a_solved);
+        if (sigma_sq_theory > 0) {
+            n_solved = S_ln_volume_sq_exp / sigma_sq_theory;
+        }
+    }
+
+    const area1_vol = A1_fit * S1_log_size;
+    const area2_vol = A2_fit * S2_log_size;
+    const phi_fine_exp = area1_vol > 0 && (area1_vol + area2_vol) > 0 ? area1_vol / (area1_vol + area2_vol) : 0;
+    
+    let epsilon_solved = null;
+    if (n_solved && n_solved > 0 && phi_fine_exp > 0 && phi_fine_exp < 1) {
+        epsilon_solved = 1 - Math.pow(1 - phi_fine_exp, 1 / n_solved);
+    }
+
+    if (n_solved && isFinite(n_solved)) hypotheticalCutsResult.textContent = n_solved.toFixed(2);
+    if (a_solved && isFinite(a_solved)) splitRatioResult.textContent = a_solved.toFixed(4);
+    if (epsilon_solved && isFinite(epsilon_solved)) finesRateResult.textContent = epsilon_solved.toFixed(4);
+}
+
+
+// --- Event Listeners ---
+window.onload = plotGraph;
+dataInput.addEventListener('input', () => setTimeout(plotGraph, 50));
+meanBeanVolumeInput.addEventListener('input', calculateAndDisplaySecondaryMetrics);
+
+</script>
+</body>
+</html>

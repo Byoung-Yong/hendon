@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PSD Analyzer by Hendon's Coffee Research Group</title>
     <link rel="icon" type="image/png" href="coffee_ico.png">
-    <!-- Tailwind & Chart.js -->
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,9 +30,9 @@
 
 <main class="grid grid-cols-1 md:grid-cols-3 gap-8 p-6 sm:p-8">
 
-    <!-- ─────────────────────────  LEFT  ────────────────────────── -->
+    
     <div class="md:col-span-1 flex flex-col gap-8">
-        <!-- Data Input -->
+        
         <div class="flex flex-col">
             <h2 class="text-xl font-semibold text-blue-800 mb-4">Data Input</h2>
             <label for="dataInput" class="block text-sm font-medium text-slate-700 mb-2">Paste your data in Size (µm), Distribution format:</label>
@@ -69,7 +69,7 @@
 630.957344, 0</textarea>
         </div>
 
-        <!-- Fit options -->
+        
         <div>
             <h2 class="text-xl font-semibold text-blue-800 mb-4">Curve Fitting Options</h2>
             <fieldset class="space-y-2">
@@ -84,14 +84,14 @@
             </fieldset>
         </div>
 
-        <!-- Fit results -->
+        
         <div class="mt-auto min-h-[190px]">
             <h2 class="text-xl font-semibold text-blue-800 mb-4">Fitting Results</h2>
             <div id="fit-results-content"></div>
         </div>
     </div>
 
-    <!-- ─────────────────────────  RIGHT  ────────────────────────── -->
+    
     <div class="md:col-span-2 flex flex-col">
         <h2 id="plotTitle" class="text-xl font-semibold text-blue-800 mb-4 text-center">PSD Plot</h2>
         <div class="relative w-full flex-grow bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-inner">
@@ -102,7 +102,6 @@
 </div>
 
 <script>
-/* ───────────────────────── Gaussian helpers ───────────────────────── */
 function gaussianFunction(x, amplitude, mean, sigma) {
     return amplitude * Math.exp(-Math.pow(x - mean, 2) / (2 * Math.pow(sigma, 2)));
 }
@@ -143,7 +142,7 @@ function nelderMead(f, start, maxIter = 2000, tol = 1e-7){
     }
     return simplex[0];
 }
-/* ───────────────────────── UI elements ───────────────────────── */
+
 const dataInput=document.getElementById('dataInput');
 const fitOptions=document.querySelectorAll('input[name="fit-type"]');
 const fitResultsContent=document.getElementById('fit-results-content');
@@ -247,7 +246,7 @@ function plotGraph(){
                 display:true,
                 labels:{
                     usePointStyle:true,
-                    boxWidth:10,   // ↓ shrink legend marker
+                    boxWidth:10,   
                     boxHeight:5,
                     font: { size: 14 } 
                 }

@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hendon's Coffee Research Group</title>
+    <title>Conductivity / TDS Analyzer</title>
     <link rel="icon" type="image/png" href="coffee_ico.png">
-    <!-- Tailwind & Chart.js -->
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,17 +25,16 @@
 </head>
 <body class="text-slate-800 flex flex-col items-center min-h-screen p-4 sm:p-6">
 
-<!-- Main Analyzer Panel -->
 <div class="w-full max-w-7xl bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
 
     <header class="text-center p-8 bg-gradient-to-b from-yellow-800 to-gray-200 text-white">
-        <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">Hendon's Coffee Research Group</h1>
+        <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">Conductivity / TDS Measurement</h1>
         <p class="mt-2 text-lg text-yellow-900">A simple tool to calculate the CPTDS index</p>
     </header>
 
     <main class="grid grid-cols-1 md:grid-cols-3 gap-8 p-6 sm:p-8">
 
-        <!-- Left Column: Data Input -->
+        
         <div class="md:col-span-1 flex flex-col gap-8">
              <div>
                 <h2 class="text-xl font-semibold text-yellow-800 mb-4">Data Input</h2>
@@ -55,7 +54,7 @@
                 </div>
             </div>
             
-            <!-- Results Panel (Moved) -->
+            
             <div>
                  <h2 class="text-xl font-semibold text-yellow-800 mb-4">Analysis Results</h2>
                  <table class="results-table rounded-lg overflow-hidden shadow">
@@ -77,7 +76,7 @@
             </div>
         </div>
 
-        <!-- Right Column (Chart) -->
+        
         <div class="md:col-span-2 flex flex-col">
             <h2 id="plotTitle" class="text-xl font-semibold text-yellow-800 mb-4 text-center">Conductivity/TDS vs. √TDS</h2>
             <div class="relative w-full flex-grow bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-inner min-h-[300px]">
@@ -89,7 +88,6 @@
 </div>
 
 <script>
-// --- UI elements ---
 const dataInput = document.getElementById('dataInput');
 const slopeResult = document.getElementById('slope-result');
 const interceptResult = document.getElementById('intercept-result');
@@ -98,14 +96,10 @@ const canvas = document.getElementById('myChart');
 const ctx = canvas.getContext('2d');
 let chartInstance = null;
 
-// --- State for interactive selection ---
 let isDragging = false;
 let selectionRect = { startX: 0, endX: 0 };
 let selectionRange = { min: null, max: null };
 
-/**
- * Calculates linear regression statistics for a set of data points.
- */
 function calculateLinearRegression(dataPoints) {
     if (dataPoints.length < 2) return { slope: 0, intercept: 0, rSquared: 0 };
     const n = dataPoints.length;
@@ -124,16 +118,13 @@ function calculateLinearRegression(dataPoints) {
     return { slope, intercept, rSquared };
 }
 
-/**
- * Custom Chart.js plugin to draw the selection rectangle.
- */
 const selectionPlugin = {
     id: 'selectionPlugin',
     afterDraw: (chart) => {
         if (isDragging) {
             const { ctx, chartArea } = chart;
             ctx.save();
-            ctx.fillStyle = 'rgba(100, 116, 139, 0.2)'; // slate-500 with opacity
+            ctx.fillStyle = 'rgba(100, 116, 139, 0.2)'; 
             const rectX = Math.min(selectionRect.startX, selectionRect.endX);
             const rectWidth = Math.abs(selectionRect.endX - selectionRect.startX);
             ctx.fillRect(rectX, chartArea.top, rectWidth, chartArea.height);
@@ -144,9 +135,6 @@ const selectionPlugin = {
 Chart.register(selectionPlugin);
 
 
-/**
- * Parses data, calculates, and plots everything.
- */
 function analyzeAndPlot() {
     if (chartInstance) {
         chartInstance.destroy();
@@ -176,12 +164,12 @@ function analyzeAndPlot() {
 
     if (allDataPoints.length === 0) return;
 
-    // Filter points based on selection
+    
     const pointsForFitting = selectionRange.min === null ? 
         [...allDataPoints] : 
         allDataPoints.filter(p => p.x >= selectionRange.min && p.x <= selectionRange.max);
 
-    // Style points based on whether they are in the fitting range
+    
     const pointBackgroundColors = allDataPoints.map(p => 
         (selectionRange.min === null || (p.x >= selectionRange.min && p.x <= selectionRange.max)) ?
         'rgba(45, 85, 155, 0.7)' : 'rgba(156, 163, 175, 0.5)');
@@ -211,7 +199,7 @@ function analyzeAndPlot() {
         });
     }
 
-    // Display new results
+    
     slopeResult.textContent = regression.slope ? regression.slope.toFixed(4) : '-';
     interceptResult.textContent = regression.intercept ? regression.intercept.toFixed(4) : '-';
     
@@ -258,7 +246,6 @@ function analyzeAndPlot() {
     });
 }
 
-// --- Event Listeners ---
 canvas.addEventListener('mousedown', (e) => {
     isDragging = true;
     selectionRect.startX = e.offsetX;
@@ -268,7 +255,7 @@ canvas.addEventListener('mousedown', (e) => {
 canvas.addEventListener('mousemove', (e) => {
     if (isDragging) {
         selectionRect.endX = e.offsetX;
-        chartInstance.update('none'); // Redraw chart without animation to show selection
+        chartInstance.update('none'); 
     }
 });
 
@@ -280,7 +267,7 @@ canvas.addEventListener('mouseup', (e) => {
         const endVal = scale.getValueForPixel(selectionRect.endX);
         selectionRange.min = Math.min(startVal, endVal);
         selectionRange.max = Math.max(startVal, endVal);
-        analyzeAndPlot(); // Final redraw with updated fitting
+        analyzeAndPlot(); 
     }
 });
 
@@ -291,14 +278,14 @@ canvas.addEventListener('dblclick', () => {
 });
 
 dataInput.addEventListener('input', () => setTimeout(() => {
-    // When data is changed, reset the selection to the default
+    
     selectionRange.min = 0.4;
     selectionRange.max = 1.0;
     analyzeAndPlot();
 }, 50));
 
 window.onload = () => {
-    // Set default selection range on initial load
+    
     selectionRange.min = 0.4;
     selectionRange.max = 1.0;
     analyzeAndPlot();

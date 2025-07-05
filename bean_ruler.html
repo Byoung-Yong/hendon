@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bean Ruler by Hendon's Coffee Research Group</title>
+    <link rel="icon" type="image/png" href="coffee_ico.png">
+    <!-- Tailwind, Chart.js, and Fonts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom Styles -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+        }
+        /* Unified table style from other pages */
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        .results-table th, .results-table td {
+            border: 1px solid #e2e8f0;
+            padding: 10px;
+            text-align: left;
+            white-space: nowrap;
+        }
+        .results-table th {
+            background-color: #f8fafc;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+        }
+        .results-table tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+        }
+        /* Loader Style */
+        .loader {
+            border: 8px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 8px solid #2563eb;
+            width: 60px;
+            height: 60px;
+            animation: spin 1.5s linear infinite;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 101;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Modal Style */
+        .modal {
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 24px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+    </style>
+</head>
+<body class="text-slate-800 flex flex-col items-center min-h-screen p-4 sm:p-6">
+
+<!-- Main Analyzer Panel - The core of the identity -->
+<div class="w-full max-w-7xl bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+
+    <!-- The iconic gradient header -->
+    <header class="text-center p-8 bg-gradient-to-b from-pink-600 to-pink-200 text-white">
+        <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">Hendon's Coffee Research Group</h1>
+        <p class="mt-2 text-lg text-purple-800">Image-based Coffee Bean Measurement Tool</p>
+    </header>
+
+    <!-- Main content area with the consistent grid layout -->
+    <main class="grid grid-cols-1 md:grid-cols-3 gap-8 p-6 sm:p-8">
+
+        <!-- Left Column: Inputs and Results -->
+        <div class="md:col-span-1 flex flex-col gap-8">
+            
+            <!-- Data Input Section -->
+            <div>
+                <h2 class="text-xl font-semibold text-green-800 mb-4">Image Input</h2>
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-inner space-y-4">
+                    <p id="main-instruction" class="text-sm text-slate-600 text-center min-h-[40px] flex items-center justify-center">Preparing the program...</p>
+                    <div class="flex flex-col items-center gap-3">
+                        <label id="fileLabel" for="fileInput" class="w-full text-center cursor-pointer inline-block bg-pink-900 text-white font-bold py-3 px-6 rounded-lg hover:bg-pink-600 transition duration-300 opacity-50 cursor-not-allowed">
+                            Loading...
+                        </label>
+                        <div class="flex gap-3 w-full">
+                           <button id="resetButton" class="w-full cursor-pointer inline-block bg-gray-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-600 transition duration-300 hidden">
+                                Reselect
+                            </button>
+                            <button id="saveButton" class="w-full cursor-pointer inline-block bg-purple-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-700 transition duration-300 hidden">
+                                Save Results
+                            </button>
+                        </div>
+                    </div>
+                    <input type="file" id="fileInput" class="hidden" accept="image/*" disabled/>
+                    <p id="status" class="mt-2 text-slate-500 text-center text-sm"></p>
+                </div>
+            </div>
+
+            <!-- Measurement Results Section -->
+            <div id="table-section" class="flex-grow flex flex-col hidden">
+                <h2 class="text-xl font-semibold text-green-800 mb-4">Measurement Results (mm)</h2>
+                <div class="table-container flex-grow">
+                    <table class="results-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Length</th>
+                                <th>Width</th>
+                                <th>Height</th>
+                                <th>Volume(mm³)</th>
+                                <th>Del</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-table-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Unified Visualization Canvas -->
+        <div id="canvas-column" class="md:col-span-2 flex flex-col gap-6 hidden">
+            <div class="flex-grow flex flex-col">
+                 <h2 id="canvas-title" class="text-xl font-semibold text-green-800 mb-4">Image Analysis</h2>
+                 <div class="relative w-full bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-inner flex-grow flex flex-col">
+                    <div id="scale-info" class="text-center text-sm text-slate-600 bg-slate-100 p-2 rounded-md mb-4 hidden"></div>
+                    <canvas id="canvasSrc" class="w-full h-auto rounded-lg"></canvas>
+                 </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Additional Panel for Statistics, maintaining modularity -->
+<div id="stats-section" class="w-full max-w-7xl bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden mt-8 hidden">
+    <div class="p-6 sm:p-8">
+        <h2 class="text-xl font-semibold text-green-800 mb-6 text-center">Statistical Analysis</h2>
+        <div id="stats-summary" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-8"></div>
+        <div class="relative w-full bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-inner">
+            <canvas id="volume-chart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Loader and Modal (no layout changes) -->
+<div id="loader" class="loader"></div>
+<div id="errorModal" class="modal">
+    <div class="modal-content">
+        <h2 class="text-xl font-bold text-red-600 mb-4">Error</h2>
+        <p id="errorMessage"></p>
+        <button onclick="document.getElementById('errorModal').style.display='none'" class="mt-6 bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition">Close</button>
+    </div>
+</div>
+
+<!-- OpenCV and App Logic -->
+<script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
+<script type="text/javascript">
+    // --- DOM Elements ---
+    const fileInput = document.getElementById('fileInput');
+    const fileLabel = document.getElementById('fileLabel');
+    const resetButton = document.getElementById('resetButton');
+    const saveButton = document.getElementById('saveButton');
+    const canvasSrc = document.getElementById('canvasSrc');
+    const status = document.getElementById('status');
+    const mainInstruction = document.getElementById('main-instruction');
+    const canvasColumn = document.getElementById('canvas-column');
+    const canvasTitle = document.getElementById('canvas-title');
+    const scaleInfo = document.getElementById('scale-info');
+    const tableSection = document.getElementById('table-section');
+    const resultsTableBody = document.getElementById('results-table-body');
+    const loader = document.getElementById('loader');
+    const errorModal = document.getElementById('errorModal');
+    const errorMessage = document.getElementById('errorMessage');
+    const statsSection = document.getElementById('stats-section');
+    const statsSummary = document.getElementById('stats-summary');
+
+    // --- State Variables ---
+    let cvReady = false;
+    let srcMat, warpedMat;
+    let corners = [];
+    let detectedBeans = [];
+    let beanIdCounter = 1;
+    let pixelsPerMm = 0;
+    let originalFileName = '';
+    let charts = {};
+    let isWarped = false; // NEW: State to track if the canvas shows the warped image
+
+    const cornerPrompts = [
+        'Click near the [Top-Left] corner of the paper.',
+        'Click near the [Top-Right] corner of the paper.',
+        'Click near the [Bottom-Right] corner of the paper.',
+        'Click near the [Bottom-Left] corner of the paper.',
+    ];
+
+    // --- Main Logic ---
+    function onOpenCvReady() {
+        cvReady = true;
+        fileInput.disabled = false;
+        fileLabel.classList.remove('opacity-50', 'cursor-not-allowed');
+        fileLabel.textContent = 'Upload Image';
+        mainInstruction.textContent = 'Please upload an image of beans on a 4x6 inch card.';
+    }
+
+    function showError(message) {
+        errorMessage.textContent = message;
+        errorModal.style.display = 'flex';
+        loader.style.display = 'none';
+    }
+
+    function getMousePos(canvas, evt) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        return {
+            x: Math.round((evt.clientX - rect.left) * scaleX),
+            y: Math.round((evt.clientY - rect.top) * scaleY)
+        };
+    }
+
+    // --- Combined Event Handler for Canvas ---
+    function handleCanvasClick(e) {
+        if (isWarped) {
+            handleBeanClick(e);
+        } else {
+            handleCornerClick(e);
+        }
+    }
+
+    function drawCornerSelectionUI(pos) {
+        let tempDisplay = srcMat.clone();
+        let pointColor = new cv.Scalar(255, 0, 0, 255);
+        corners.forEach(p => cv.circle(tempDisplay, new cv.Point(Math.round(p.x), Math.round(p.y)), 10, pointColor, -1));
+        
+        if (pos) {
+            let circleColor = new cv.Scalar(0, 255, 255, 255);
+            cv.circle(tempDisplay, pos, 50, circleColor, 2);
+        }
+        
+        cv.imshow('canvasSrc', tempDisplay);
+        tempDisplay.delete();
+    }
+
+    function handleCornerMouseMove(e) {
+        if (isWarped || corners.length >= 4 || !srcMat || srcMat.isDeleted()) return;
+        const pos = getMousePos(canvasSrc, e);
+        drawCornerSelectionUI(pos);
+    }
+
+    function handleCornerMouseOut() {
+        if (!isWarped) {
+            drawCornerSelectionUI(null);
+        }
+    }
+
+    function handleCornerClick(e) {
+        if (corners.length >= 4 || !srcMat || srcMat.isDeleted()) return;
+        const pos = getMousePos(canvasSrc, e);
+        
+        let detectedCorner = pos;
+        let roiMat, grayRoi, cornersMat;
+        try {
+            const roiSize = 100;
+            const roiX = Math.max(0, pos.x - roiSize / 2);
+            const roiY = Math.max(0, pos.y - roiSize / 2);
+            const roiW = Math.min(roiSize, srcMat.cols - roiX);
+            const roiH = Math.min(roiSize, srcMat.rows - roiY);
+            const roiRect = new cv.Rect(roiX, roiY, roiW, roiH);
+            
+            roiMat = srcMat.roi(roiRect).clone();
+            grayRoi = new cv.Mat();
+            cv.cvtColor(roiMat, grayRoi, cv.COLOR_RGBA2GRAY, 0);
+            cornersMat = new cv.Mat();
+            cv.goodFeaturesToTrack(grayRoi, cornersMat, 1, 0.01, 10, new cv.Mat(), 3, false, 0.04);
+
+            if (cornersMat.rows > 0) {
+                detectedCorner = {
+                    x: cornersMat.data32F[0] + roiX,
+                    y: cornersMat.data32F[1] + roiY
+                };
+            }
+        } catch(err) {
+            console.error("Corner detection fallback:", err);
+        } finally {
+            if (roiMat) roiMat.delete();
+            if (grayRoi) grayRoi.delete();
+            if (cornersMat) cornersMat.delete();
+        }
+        
+        corners.push(detectedCorner);
+        drawCornerSelectionUI(pos);
+
+        status.textContent = cornerPrompts[corners.length] || 'All corners selected. Processing...';
+        
+        if (corners.length === 4) {
+            performWarp();
+        }
+    }
+
+    function handleBeanClick(e) {
+        if (!warpedMat || warpedMat.isDeleted()) return;
+        const pos = getMousePos(canvasSrc, e);
+        
+        status.textContent = "Analyzing bean...";
+        loader.style.display = 'block';
+
+        setTimeout(() => {
+            let warpedRgb, gray, thresh, contours, hierarchy, targetContour, mask, bgdModel, fgdModel, finalBeanContour, contourVector;
+            try {
+                warpedRgb = new cv.Mat();
+                cv.cvtColor(warpedMat, warpedRgb, cv.COLOR_RGBA2RGB);
+                gray = new cv.Mat();
+                cv.cvtColor(warpedRgb, gray, cv.COLOR_RGB2GRAY);
+                thresh = new cv.Mat();
+                cv.threshold(gray, thresh, 0, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU);
+                
+                contours = new cv.MatVector();
+                hierarchy = new cv.Mat();
+                cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                for (let i = 0; i < contours.size(); i++) {
+                    let cnt = contours.get(i);
+                    if (cv.pointPolygonTest(cnt, pos, false) >= 0) {
+                        targetContour = cnt.clone();
+                        cnt.delete();
+                        break; 
+                    }
+                    cnt.delete();
+                }
+
+                if (!targetContour) {
+                    throw new Error("Could not find a bean at the clicked location. Please click the center of a bean.");
+                }
+
+                let rect = cv.boundingRect(targetContour);
+                mask = new cv.Mat(warpedRgb.rows, warpedRgb.cols, cv.CV_8UC1, new cv.Scalar(cv.GC_BGD));
+                
+                contourVector = new cv.MatVector();
+                contourVector.push_back(targetContour);
+                cv.drawContours(mask, contourVector, 0, new cv.Scalar(cv.GC_PR_FGD), -1);
+                
+                cv.circle(mask, pos, 5, new cv.Scalar(cv.GC_FGD), -1);
+
+                bgdModel = new cv.Mat();
+                fgdModel = new cv.Mat();
+                cv.grabCut(warpedRgb, mask, rect, bgdModel, fgdModel, 5, cv.GC_INIT_WITH_MASK);
+
+                for (let i = 0; i < mask.rows; i++) {
+                    for (let j = 0; j < mask.cols; j++) {
+                        if (mask.data[i * mask.cols + j] === cv.GC_BGD || mask.data[i * mask.cols + j] === cv.GC_PR_BGD) {
+                            mask.data[i * mask.cols + j] = 0;
+                        } else {
+                            mask.data[i * mask.cols + j] = 255;
+                        }
+                    }
+                }
+                
+                contours.delete(); hierarchy.delete();
+                contours = new cv.MatVector();
+                hierarchy = new cv.Mat();
+                cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                
+                if (contours.size() > 0) {
+                    let maxArea = 0;
+                    let bestContour = null;
+                    for(let i=0; i<contours.size(); i++){
+                       let cnt = contours.get(i);
+                       let area = cv.contourArea(cnt);
+                       if(area > maxArea){
+                           maxArea = area;
+                           if(bestContour) bestContour.delete();
+                           bestContour = cnt.clone();
+                       }
+                       cnt.delete();
+                    }
+
+                    if(bestContour && bestContour.rows >= 5) {
+                        finalBeanContour = bestContour;
+                        let ellipse = cv.fitEllipse(finalBeanContour);
+                        let lengthMm = Math.max(ellipse.size.width, ellipse.size.height) / pixelsPerMm;
+                        let widthMm = Math.min(ellipse.size.width, ellipse.size.height) / pixelsPerMm;
+                        let heightMm = (lengthMm * 0.4 + widthMm * 0.61) / 2;
+                        let volumeMm3 = (4/3) * Math.PI * (lengthMm/2) * (widthMm/2) * (heightMm/2);
+
+                        detectedBeans.push({
+                            id: beanIdCounter++,
+                            contour: finalBeanContour,
+                            ellipse: ellipse,
+                            length: lengthMm,
+                            width: widthMm,
+                            height: heightMm,
+                            volume: volumeMm3
+                        });
+                    } else {
+                       if(bestContour) bestContour.delete();
+                    }
+                }
+
+                redrawBeanDetections();
+
+            } catch(err) {
+                showError(err.message || "An unknown error occurred during bean analysis.");
+            } finally {
+                if (warpedRgb) warpedRgb.delete();
+                if (gray) gray.delete();
+                if (thresh) thresh.delete();
+                if (contours) contours.delete();
+                if (hierarchy) hierarchy.delete();
+                if (targetContour) targetContour.delete();
+                if (contourVector) contourVector.delete();
+                if (mask) mask.delete();
+                if (bgdModel) bgdModel.delete();
+                if (fgdModel) fgdModel.delete();
+                loader.style.display = 'none';
+            }
+        }, 50);
+    }
+    
+    function deselectBean(beanId) {
+        const index = detectedBeans.findIndex(b => b.id === beanId);
+        if (index > -1) {
+            detectedBeans[index].contour.delete();
+            detectedBeans.splice(index, 1);
+            redrawBeanDetections();
+        }
+    }
+
+    function redrawBeanDetections() {
+        let displayWarped = warpedMat.clone();
+        let contourColor = new cv.Scalar(0, 255, 255, 255);
+        let textColor = new cv.Scalar(255, 255, 0, 255);
+
+        resultsTableBody.innerHTML = '';
+
+        detectedBeans.forEach(bean => {
+            cv.ellipse1(displayWarped, bean.ellipse, contourColor, 3, cv.LINE_AA);
+            
+            let M = cv.moments(bean.contour, false);
+            let cx = M.m10 / M.m00;
+            let cy = M.m01 / M.m00;
+            cv.putText(displayWarped, `${bean.id}`, new cv.Point(Math.round(cx) - 10, Math.round(cy) + 10), cv.FONT_HERSHEY_SIMPLEX, 0.8, textColor, 2);
+            
+            const row = resultsTableBody.insertRow();
+            row.innerHTML = `
+                <td class="p-2 font-medium text-slate-900">${bean.id}</td>
+                <td class="p-2">${Number(bean.length).toPrecision(3)}</td>
+                <td class="p-2">${Number(bean.width).toPrecision(3)}</td>
+                <td class="p-2">${Number(bean.height).toPrecision(3)}</td>
+                <td class="p-2">${Number(bean.volume).toPrecision(3)}</td>
+                <td class="p-2 text-center"><button class="font-medium text-red-600 hover:underline" onclick="deselectBean(${bean.id})">X</button></td>
+            `;
+        });
+
+        cv.imshow('canvasSrc', displayWarped);
+        status.textContent = `Measured Beans: ${detectedBeans.length}. Continue selecting or save results.`;
+        displayWarped.delete();
+        updateStatistics();
+    }
+
+    function orderPoints(pts) {
+        let rect = [...pts];
+        rect.sort((a, b) => a.y - b.y);
+        let top = rect.slice(0, 2).sort((a, b) => a.x - b.x);
+        let bottom = rect.slice(2, 4).sort((a, b) => a.x - b.x);
+        return [top[0], top[1], bottom[1], bottom[0]]; // Return in TL, TR, BR, BL order
+    }
+
+    function performWarp() {
+        loader.style.display = 'block';
+        setTimeout(() => {
+            try {
+                const orderedCorners = orderPoints(corners);
+                const [tl, tr, br, bl] = orderedCorners;
+
+                const dist = (p1, p2) => Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+                const widthA = dist(br, bl);
+                const widthB = dist(tr, tl);
+                const avgWidthPx = (widthA + widthB) / 2;
+
+                const heightA = dist(tr, br);
+                const heightB = dist(tl, bl);
+                const avgHeightPx = (heightA + heightB) / 2;
+
+                const inchToMm = 25.4;
+                const paperLongSideMm = 6.0 * inchToMm;
+                const paperShortSideMm = 4.0 * inchToMm;
+
+                const pixelsPerMm1 = Math.max(avgWidthPx, avgHeightPx) / paperLongSideMm;
+                const pixelsPerMm2 = Math.min(avgWidthPx, avgHeightPx) / paperShortSideMm;
+                pixelsPerMm = (pixelsPerMm1 + pixelsPerMm2) / 2;
+
+                if (isNaN(pixelsPerMm) || pixelsPerMm <= 0) {
+                    throw new Error("Could not calculate scale from the selected corners. Please select again.");
+                }
+
+                const outputWidth = Math.round(avgWidthPx);
+                const outputHeight = Math.round(avgHeightPx);
+                
+                const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
+                const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, outputWidth, 0, outputWidth, outputHeight, 0, outputHeight]);
+                
+                let M = cv.getPerspectiveTransform(srcTri, dstTri);
+                let dsize = new cv.Size(outputWidth, outputHeight);
+                if (warpedMat) warpedMat.delete();
+                warpedMat = new cv.Mat();
+                cv.warpPerspective(srcMat, warpedMat, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+                
+                // KEY CHANGE: Show warped image on the *source* canvas
+                cv.imshow('canvasSrc', warpedMat);
+                isWarped = true;
+                
+                mainInstruction.textContent = "Click on a bean in the corrected image to measure it.";
+                canvasTitle.textContent = "Select & Measure Beans";
+                status.textContent = "";
+                scaleInfo.innerHTML = `<b>Scale:</b> ${pixelsPerMm.toFixed(2)} pixels/mm (1px = ${(1/pixelsPerMm).toFixed(4)} mm)`;
+                scaleInfo.classList.remove('hidden');
+                saveButton.classList.remove('hidden');
+                tableSection.classList.remove('hidden');
+
+                M.delete(); dstTri.delete(); srcTri.delete();
+            } catch (err) {
+                showError('Error during image transformation: ' + err.message);
+            } finally {
+                loader.style.display = 'none';
+            }
+        }, 50);
+    }
+
+    function updateStatistics() {
+        if (detectedBeans.length < 2) {
+            statsSection.classList.add('hidden');
+            return;
+        }
+        statsSection.classList.remove('hidden');
+
+        const metrics = ['length', 'width', 'height', 'volume'];
+        const stats = {};
+
+        metrics.forEach(metric => {
+            const data = detectedBeans.map(b => b[metric]);
+            const sum = data.reduce((a, b) => a + b, 0);
+            const avg = sum / data.length;
+            const stdDev = data.length > 1 ? Math.sqrt(data.map(x => Math.pow(x - avg, 2)).reduce((a, b) => a + b, 0) / (data.length - 1)) : 0;
+            stats[metric] = { avg, stdDev, data };
+        });
+
+        statsSummary.innerHTML = `
+            <div><p class="text-sm text-slate-500">Length</p><p class="font-bold">${stats.length.avg.toPrecision(3)} ± ${stats.length.stdDev.toPrecision(2)} mm</p></div>
+            <div><p class="text-sm text-slate-500">Width</p><p class="font-bold">${stats.width.avg.toPrecision(3)} ± ${stats.width.stdDev.toPrecision(2)} mm</p></div>
+            <div><p class="text-sm text-slate-500">Height</p><p class="font-bold">${stats.height.avg.toPrecision(3)} ± ${stats.height.stdDev.toPrecision(2)} mm</p></div>
+            <div><p class="text-sm text-slate-500">Volume</p><p class="font-bold">${stats.volume.avg.toPrecision(3)} ± ${stats.volume.stdDev.toPrecision(2)} mm³</p></div>
+        `;
+        
+        const metric = 'volume';
+        const volumes = stats[metric].data;
+        const minVol = Math.min(...volumes);
+        const maxVol = Math.max(...volumes);
+        const numBins = Math.min(8, Math.floor(detectedBeans.length / 2));
+        if (numBins < 2) return;
+        const binWidth = (maxVol - minVol) / numBins;
+        
+        const bins = Array(numBins).fill(0);
+        const labels = [];
+
+        // MODIFICATION FOR X-AXIS LABELS
+        for (let i = 0; i < numBins; i++) {
+            const binStart = minVol + i * binWidth;
+            const binEnd = binStart + binWidth;
+            // Format labels as rounded integers to avoid scientific notation
+            labels.push(`${Math.round(binStart)} - ${Math.round(binEnd)}`);
+        }
+        
+        volumes.forEach(volume => {
+            if (binWidth > 0) {
+                let binIndex = Math.floor((volume - minVol) / binWidth);
+                if (binIndex === numBins) binIndex--;
+                if (bins[binIndex] !== undefined) bins[binIndex]++;
+            } else {
+                bins[0]++;
+            }
+        });
+
+        if (charts.volume) charts.volume.destroy();
+        const ctx = document.getElementById('volume-chart').getContext('2d');
+        charts.volume = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: `Estimated Bean Volume Distribution (n=${detectedBeans.length})`,
+                    data: bins,
+                    backgroundColor: 'rgba(22, 163, 74, 0.6)',
+                    borderColor: 'rgba(22, 163, 74, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: { 
+                scales: { 
+                    // MODIFICATION FOR Y-AXIS TICKS
+                    y: { 
+                        beginAtZero: true, 
+                        title: { display: true, text: 'Count' },
+                        ticks: {
+                            // This callback ensures that only integer values are displayed on the y-axis.
+                            callback: function(value) {
+                                if (value % 1 === 0) {
+                                    return value;
+                                }
+                            }
+                        }
+                    }, 
+                    x: { 
+                        title: { display: true, text: 'Volume (mm³)' } 
+                    } 
+                },
+                plugins: { legend: { display: true } }
+            }
+        });
+    }
+
+    function saveResults() {
+        mainInstruction.textContent = `Measurement of ${detectedBeans.length} beans is complete.`;
+        status.textContent = "Results saved. You can reselect corners or upload a new image.";
+        saveButton.classList.add('hidden');
+
+        // Save Image
+        const imageLink = document.createElement('a');
+        imageLink.download = `${originalFileName}_beans.jpg`;
+        imageLink.href = canvasSrc.toDataURL('image/jpeg', 0.9);
+        imageLink.click();
+
+        // Save CSV
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "ID,Length(mm),Width(mm),Height(mm),Volume(mm3)\r\n";
+        detectedBeans.forEach(bean => {
+            let row = `${bean.id},${bean.length.toPrecision(4)},${bean.width.toPrecision(4)},${bean.height.toPrecision(4)},${bean.volume.toPrecision(4)}`;
+            csvContent += row + "\r\n";
+        });
+        const encodedUri = encodeURI(csvContent);
+        const csvLink = document.createElement('a');
+        csvLink.setAttribute('href', encodedUri);
+        csvLink.setAttribute('download', `${originalFileName}_measure.csv`);
+        document.body.appendChild(csvLink);
+        csvLink.click();
+        document.body.removeChild(csvLink);
+    }
+    
+    function cleanupAndReset(fullReset = true) {
+        if (srcMat && !srcMat.isDeleted()) srcMat.delete();
+        if (warpedMat && !warpedMat.isDeleted()) warpedMat.delete();
+        detectedBeans.forEach(b => {
+            if (b.contour && !b.contour.isDeleted()) b.contour.delete();
+        });
+
+        srcMat = null; warpedMat = null;
+        corners = []; detectedBeans = [];
+        beanIdCounter = 1; pixelsPerMm = 0;
+        isWarped = false;
+
+        canvasSrc.getContext('2d').clearRect(0, 0, canvasSrc.width, canvasSrc.height);
+        
+        canvasColumn.classList.add('hidden');
+        statsSection.classList.add('hidden');
+        saveButton.classList.add('hidden');
+        resetButton.classList.add('hidden');
+        scaleInfo.classList.add('hidden');
+        tableSection.classList.add('hidden');
+        
+        mainInstruction.textContent = 'Please upload an image.';
+        status.textContent = '';
+        
+        if (fullReset) {
+            fileInput.value = '';
+        }
+    }
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            const file = e.target.files[0];
+            originalFileName = file.name.split('.').slice(0, -1).join('.');
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            
+            cleanupAndReset(false);
+
+            status.textContent = 'Loading image...';
+            loader.style.display = 'block';
+
+            img.onload = function() {
+                if (!cvReady) {
+                    showError('OpenCV.js has not loaded yet. Please try again in a moment.');
+                    return;
+                }
+                
+                try {
+                    srcMat = cv.imread(img);
+                    
+                    if (srcMat.rows > srcMat.cols) {
+                        cv.rotate(srcMat, srcMat, cv.ROTATE_90_COUNTER_CLOCKWISE);
+                    }
+                    const MAX_WIDTH = 2000;
+                    if (srcMat.cols > MAX_WIDTH) {
+                        const newSize = new cv.Size(MAX_WIDTH, Math.round(srcMat.rows * MAX_WIDTH / srcMat.cols));
+                        cv.resize(srcMat, srcMat, newSize, 0, 0, cv.INTER_AREA);
+                    }
+                    
+                    cv.imshow('canvasSrc', srcMat);
+                    canvasColumn.classList.remove('hidden');
+                    resetButton.classList.remove('hidden');
+                    canvasTitle.textContent = "Correct Image Perspective";
+                    mainInstruction.textContent = 'Click the four corners of the card in order.';
+                    status.textContent = cornerPrompts[0];
+                    
+                } catch (err) {
+                    showError('Error processing image: ' + err.message);
+                } finally {
+                    loader.style.display = 'none';
+                }
+            };
+        }
+    });
+    
+    resetButton.addEventListener('click', () => {
+         if (srcMat && !srcMat.isDeleted()) {
+            // Reset to corner selection stage
+            if (warpedMat) warpedMat.delete();
+            warpedMat = null;
+            isWarped = false;
+            corners = [];
+            detectedBeans.forEach(b => b.contour.delete());
+            detectedBeans = [];
+            beanIdCounter = 1;
+
+            statsSection.classList.add('hidden');
+            saveButton.classList.add('hidden');
+            tableSection.classList.add('hidden');
+            scaleInfo.classList.add('hidden');
+            
+            cv.imshow('canvasSrc', srcMat);
+            canvasTitle.textContent = "1. Correct Image Perspective";
+            mainInstruction.textContent = 'Click the four corners of the card in order.';
+            status.textContent = cornerPrompts[0];
+         } else {
+            // Full reset if no image is loaded
+            cleanupAndReset(true);
+         }
+    });
+    
+    saveButton.addEventListener('click', saveResults);
+    
+    // Add unified event listeners
+    canvasSrc.addEventListener('click', handleCanvasClick);
+    canvasSrc.addEventListener('mousemove', handleCornerMouseMove);
+    canvasSrc.addEventListener('mouseout', handleCornerMouseOut);
+
+</script>
+</body>
+</html>

@@ -4,20 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bean Ruler by Hendon's Coffee Research Group</title>
-    <link rel="icon" type="image/png" href="coffee_ico.png">
-    
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Hendon-Coffee-Research-Group/Bean-Ruler/main/coffee_ico.png">
+    <!-- Tailwind, Chart.js, and Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+    <!-- Custom Styles -->
     <style>
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f1f5f9;
         }
-        
+        /* Unified table style from other pages */
         .results-table {
             width: 100%;
             border-collapse: collapse;
@@ -43,7 +43,7 @@
             border: 1px solid #e2e8f0;
             border-radius: 0.5rem;
         }
-        
+        /* Loader Style */
         .loader {
             border: 8px solid #f3f3f3;
             border-radius: 50%;
@@ -62,7 +62,7 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
+        /* Modal Style */
         .modal {
             position: fixed;
             z-index: 100;
@@ -91,21 +91,22 @@
 </head>
 <body class="text-slate-800 flex flex-col items-center min-h-screen p-4 sm:p-6">
 
+<!-- Main Analyzer Panel - The core of the identity -->
 <div class="w-full max-w-7xl bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
 
-    
+    <!-- The iconic gradient header -->
     <header class="text-center p-8 bg-gradient-to-b from-pink-600 to-pink-200 text-white">
         <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">Hendon's Coffee Research Group</h1>
         <p class="mt-2 text-lg text-purple-800">Image-based Coffee Bean Measurement Tool</p>
     </header>
 
-    
+    <!-- Main content area with the consistent grid layout -->
     <main class="grid grid-cols-1 md:grid-cols-3 gap-8 p-6 sm:p-8">
 
-        
+        <!-- Left Column: Inputs and Results -->
         <div class="md:col-span-1 flex flex-col gap-8">
             
-            
+            <!-- Data Input Section -->
             <div>
                 <h2 class="text-xl font-semibold text-green-800 mb-4">Image Input</h2>
                 <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-inner space-y-4">
@@ -128,7 +129,7 @@
                 </div>
             </div>
 
-            
+            <!-- Measurement Results Section -->
             <div id="table-section" class="flex-grow flex flex-col hidden">
                 <h2 class="text-xl font-semibold text-green-800 mb-4">Measurement Results (mm)</h2>
                 <div class="table-container flex-grow">
@@ -150,7 +151,7 @@
             </div>
         </div>
 
-        
+        <!-- Right Column: Unified Visualization Canvas -->
         <div id="canvas-column" class="md:col-span-2 flex flex-col gap-6 hidden">
             <div class="flex-grow flex flex-col">
                  <h2 id="canvas-title" class="text-xl font-semibold text-green-800 mb-4">Image Analysis</h2>
@@ -163,7 +164,7 @@
     </main>
 </div>
 
-
+<!-- Additional Panel for Statistics, maintaining modularity -->
 <div id="stats-section" class="w-full max-w-7xl bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden mt-8 hidden">
     <div class="p-6 sm:p-8">
         <h2 class="text-xl font-semibold text-green-800 mb-6 text-center">Statistical Analysis</h2>
@@ -174,7 +175,7 @@
     </div>
 </div>
 
-
+<!-- Loader and Modal (no layout changes) -->
 <div id="loader" class="loader"></div>
 <div id="errorModal" class="modal">
     <div class="modal-content">
@@ -184,10 +185,10 @@
     </div>
 </div>
 
-
+<!-- OpenCV and App Logic -->
 <script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
 <script type="text/javascript">
-    
+    // --- DOM Elements ---
     const fileInput = document.getElementById('fileInput');
     const fileLabel = document.getElementById('fileLabel');
     const resetButton = document.getElementById('resetButton');
@@ -206,7 +207,7 @@
     const statsSection = document.getElementById('stats-section');
     const statsSummary = document.getElementById('stats-summary');
 
-    
+    // --- State Variables ---
     let cvReady = false;
     let srcMat, warpedMat;
     let corners = [];
@@ -215,7 +216,7 @@
     let pixelsPerMm = 0;
     let originalFileName = '';
     let charts = {};
-    let isWarped = false; 
+    let isWarped = false; // NEW: State to track if the canvas shows the warped image
 
     const cornerPrompts = [
         'Click near the [Top-Left] corner of the paper.',
@@ -224,7 +225,7 @@
         'Click near the [Bottom-Left] corner of the paper.',
     ];
 
-    
+    // --- Main Logic ---
     function onOpenCvReady() {
         cvReady = true;
         fileInput.disabled = false;
@@ -249,7 +250,7 @@
         };
     }
 
-    
+    // --- Combined Event Handler for Canvas ---
     function handleCanvasClick(e) {
         if (isWarped) {
             handleBeanClick(e);
@@ -386,6 +387,12 @@
                     }
                 }
                 
+                // Erode the mask slightly to exclude the outermost pixels from the measurement,
+                // addressing user feedback that measurements were slightly too large.
+                let erosionKernel = cv.Mat.ones(3, 3, cv.CV_8U);
+                cv.erode(mask, mask, erosionKernel, new cv.Point(-1, -1), 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
+                erosionKernel.delete();
+
                 contours.delete(); hierarchy.delete();
                 contours = new cv.MatVector();
                 hierarchy = new cv.Mat();
@@ -410,7 +417,7 @@
                         let ellipse = cv.fitEllipse(finalBeanContour);
                         let lengthMm = Math.max(ellipse.size.width, ellipse.size.height) / pixelsPerMm;
                         let widthMm = Math.min(ellipse.size.width, ellipse.size.height) / pixelsPerMm;
-                        let heightMm = (lengthMm * 0.4 + widthMm * 0.61) / 2;
+                        let heightMm = (lengthMm * 0.46 + widthMm * 0.58) / 2;
                         let volumeMm3 = (4/3) * Math.PI * (lengthMm/2) * (widthMm/2) * (heightMm/2);
 
                         detectedBeans.push({
@@ -493,7 +500,7 @@
         rect.sort((a, b) => a.y - b.y);
         let top = rect.slice(0, 2).sort((a, b) => a.x - b.x);
         let bottom = rect.slice(2, 4).sort((a, b) => a.x - b.x);
-        return [top[0], top[1], bottom[1], bottom[0]]; 
+        return [top[0], top[1], bottom[1], bottom[0]]; // Return in TL, TR, BR, BL order
     }
 
     function performWarp() {
@@ -536,7 +543,7 @@
                 warpedMat = new cv.Mat();
                 cv.warpPerspective(srcMat, warpedMat, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
                 
-                
+                // KEY CHANGE: Show warped image on the *source* canvas
                 cv.imshow('canvasSrc', warpedMat);
                 isWarped = true;
                 
@@ -593,11 +600,11 @@
         const bins = Array(numBins).fill(0);
         const labels = [];
 
-        
+        // MODIFICATION FOR X-AXIS LABELS
         for (let i = 0; i < numBins; i++) {
             const binStart = minVol + i * binWidth;
             const binEnd = binStart + binWidth;
-            
+            // Format labels as rounded integers to avoid scientific notation
             labels.push(`${Math.round(binStart)} - ${Math.round(binEnd)}`);
         }
         
@@ -627,12 +634,12 @@
             },
             options: { 
                 scales: { 
-                    
+                    // MODIFICATION FOR Y-AXIS TICKS
                     y: { 
                         beginAtZero: true, 
                         title: { display: true, text: 'Count' },
                         ticks: {
-                            
+                            // This callback ensures that only integer values are displayed on the y-axis.
                             callback: function(value) {
                                 if (value % 1 === 0) {
                                     return value;
@@ -654,13 +661,13 @@
         status.textContent = "Results saved. You can reselect corners or upload a new image.";
         saveButton.classList.add('hidden');
 
-        
+        // Save Image
         const imageLink = document.createElement('a');
         imageLink.download = `${originalFileName}_beans.jpg`;
         imageLink.href = canvasSrc.toDataURL('image/jpeg', 0.9);
         imageLink.click();
 
-        
+        // Save CSV
         let csvContent = "data:text/csv;charset=utf-8,";
         csvContent += "ID,Length(mm),Width(mm),Height(mm),Volume(mm3)\r\n";
         detectedBeans.forEach(bean => {
@@ -753,7 +760,7 @@
     
     resetButton.addEventListener('click', () => {
          if (srcMat && !srcMat.isDeleted()) {
-            
+            // Reset to corner selection stage
             if (warpedMat) warpedMat.delete();
             warpedMat = null;
             isWarped = false;
@@ -772,14 +779,14 @@
             mainInstruction.textContent = 'Click the four corners of the card in order.';
             status.textContent = cornerPrompts[0];
          } else {
-            
+            // Full reset if no image is loaded
             cleanupAndReset(true);
          }
     });
     
     saveButton.addEventListener('click', saveResults);
     
-    
+    // Add unified event listeners
     canvasSrc.addEventListener('click', handleCanvasClick);
     canvasSrc.addEventListener('mousemove', handleCornerMouseMove);
     canvasSrc.addEventListener('mouseout', handleCornerMouseOut);

@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PSD Analyzer by Hendon's Coffee Research Group</title>
-    <link rel="icon" type="image/png" href="coffee_ico.png">
-    
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Hendon-Coffee-Research/Grinder-Trauma-Model/main/assets/coffee_ico.png">
+    <!-- Tailwind & Chart.js -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,6 +22,7 @@
 </head>
 <body class="text-slate-800 flex flex-col items-center min-h-screen p-4 sm:p-6">
 
+<!-- Main Analyzer Panel -->
 <div class="w-full max-w-7xl bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
 
     <header class="text-center p-8 bg-gradient-to-b from-blue-800 to-blue-500 text-white">
@@ -31,9 +32,9 @@
 
     <main class="grid grid-cols-1 md:grid-cols-3 gap-8 p-6 sm:p-8">
 
-        
+        <!-- Left Column -->
         <div class="md:col-span-1 flex flex-col gap-8">
-            
+            <!-- Data Input -->
             <div class="flex flex-col">
                 <h2 class="text-xl font-semibold text-blue-800 mb-4">Data Input</h2>
                 <label for="dataInput" class="block text-sm font-medium text-slate-700 mb-2">Paste your data in Size (µm), Distribution format:</label>
@@ -70,14 +71,14 @@
 630.957344, 0</textarea>
             </div>
 
-            
+            <!-- Fit results -->
             <div class="mt-auto min-h-[190px]">
                 <h2 class="text-xl font-semibold text-blue-800 mb-4">Fit Parameters</h2>
                 <div id="fit-results-content"></div>
             </div>
         </div>
 
-        
+        <!-- Right Column (Chart) -->
         <div class="md:col-span-2 flex flex-col">
             <h2 id="plotTitle" class="text-xl font-semibold text-blue-800 mb-4 text-center">PSD Plot</h2>
             <div class="relative w-full flex-grow bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-inner">
@@ -87,12 +88,12 @@
     </main>
 </div>
 
-
+<!-- New Full-Width Panel -->
 <div class="w-full max-w-7xl bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden mt-8">
     <div class="p-6 sm:p-8">
         <h2 class="text-xl font-semibold text-blue-800 mb-4">Advanced Model Analysis</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            
+            <!-- Left: Input -->
             <div class="md:col-span-1">
                 <h3 class="text-lg font-semibold text-slate-800 mb-2">Mean volume of coffee beans</h3>
                 <div class="flex items-center mt-1">
@@ -100,21 +101,27 @@
                     <span class="ml-2 text-slate-600">(mm³)</span>
                 </div>
             </div>
-            
+            <!-- Right: Calculation Results -->
             <div class="md:col-span-2">
                  <h3 class="text-lg font-semibold text-slate-800 mb-2">Descriptors</h3>
                  <table class="fit-results-table">
+                     <thead>
+                         <tr>
+                             <th class="w-1/2">Descriptor</th>
+                             <th class="w-1/2 text-right">Value</th>
+                         </tr>
+                     </thead>
                      <tbody>
                          <tr>
-                             <td class="w-1/2">Hypothetical cuts (<i>n</i>)</td>
+                             <td>Hypothetical cuts (<i>n</i>)</td>
                              <td id="hypothetical-cuts-result" class="results-value">-</td>
                          </tr>
                          <tr>
-                             <td class="w-1/2">Split-ratio (<i>&alpha;</i>)</td>
+                             <td>Split-ratio (<i>&alpha;</i>)</td>
                              <td id="split-ratio-result" class="results-value">-</td>
                          </tr>
                          <tr>
-                             <td class="w-1/2">Fines generation-rate (<i>&epsilon;</i>)</td>
+                             <td>Fines generation-rate (<i>&epsilon;</i>)</td>
                              <td id="fines-generation-rate-result" class="results-value">-</td>
                          </tr>
                      </tbody>
@@ -126,6 +133,7 @@
 
 
 <script>
+/* ───────────────────────── Gaussian & Fitting helpers ───────────────────────── */
 function gaussianFunction(x, amplitude, mean, sigma) {
     return amplitude * Math.exp(-Math.pow(x - mean, 2) / (2 * Math.pow(sigma, 2)));
 }
@@ -167,6 +175,7 @@ function nelderMead(f, start, maxIter = 2000, tol = 1e-7){
     return simplex[0];
 }
 
+/* ───────────────────────── UI elements & State ───────────────────────── */
 const dataInput = document.getElementById('dataInput');
 const fitResultsContent = document.getElementById('fit-results-content');
 const plotTitle = document.getElementById('plotTitle');
@@ -177,7 +186,6 @@ const splitRatioResult = document.getElementById('split-ratio-result');
 const finesRateResult = document.getElementById('fines-generation-rate-result');
 
 let chartInstance = null;
-let volumeFitParams = null; 
 
 function findInitialGuesses(data,numPeaks){
     if(data.x.length<3) return null;
@@ -200,39 +208,29 @@ function plotGraph(){
     const raw=dataInput.value.trim();
     const numPeaks = 2;
     
-    volumeFitParams = null; 
-
     if(!raw){
         displayFitResults(null, numPeaks);
-        calculateAndDisplaySecondaryMetrics();
+        calculateAndDisplaySecondaryMetrics(null);
         return;
     }
 
     const lines=raw.split('\n');
     const surfaceAreaPts = [];
-    const volumeFitData = { x: [], y: [] };
     const surfaceFitData = { x: [], y: [] };
 
-    
+    // Parse input data (diameter, surface area)
     lines.forEach(l=>{
         const parts=l.replace(/[,;\s\t]+/g,' ').trim().split(/\s+/);
         if(parts.length===2){
-            const d=parseFloat(parts[0]); 
-            const s_d=parseFloat(parts[1]); 
+            const d=parseFloat(parts[0]); // diameter
+            const s_d=parseFloat(parts[1]); // surface area distribution value
             if(!isNaN(d) && !isNaN(s_d) && d > 0){
                 surfaceAreaPts.push({x: d, y: s_d});
                 
-                
+                // For Surface Area fit
                 if (s_d > 0) {
                     surfaceFitData.x.push(Math.log10(d));
                     surfaceFitData.y.push(s_d);
-                }
-
-                
-                const v_d = s_d * d / 6.0;
-                if (v_d > 0) {
-                    volumeFitData.x.push(Math.log10(d));
-                    volumeFitData.y.push(v_d);
                 }
             }
         }
@@ -253,7 +251,7 @@ function plotGraph(){
 
     plotTitle.textContent='PSD Plot';
 
-    
+    // --- Perform Fit on Surface Area Data ---
     let surfaceFitParams = null;
     const surfaceGuess = findInitialGuesses(surfaceFitData, numPeaks);
     if(surfaceGuess){
@@ -265,24 +263,12 @@ function plotGraph(){
         }
     }
 
-    
-    const volumeGuess = findInitialGuesses(volumeFitData, numPeaks);
-    if(volumeGuess){
-        try{
-            const volumeCost = p => leastSquares(p, volumeFitData.x, volumeFitData.y);
-            volumeFitParams = nelderMead(volumeCost, volumeGuess); 
-        }catch(e){
-            console.error("Volume fit failed:", e);
-            volumeFitParams = null;
-        }            
-    }
-
-    
+    // Display results and curves based on the surface area fit
     if (surfaceFitParams) {
         const minX=Math.min(...surfaceAreaPts.map(p=>p.x).filter(x=>x>0));
         const maxX=Math.max(...surfaceAreaPts.map(p=>p.x));
         
-        
+        // Generate total fit curve
         const totalFitLine = [];
         for(let i=0; i<200; i++){
             const x = minX*Math.pow(maxX/minX, i/199); 
@@ -300,7 +286,7 @@ function plotGraph(){
             pointStyle:'line'
         });
 
-        
+        // Generate individual peak curves
         const colors=['rgba(59,130,246,0.8)','rgba(34,197,94,0.8)'];
         for(let p=0; p<numPeaks; p++){
             const pk = surfaceFitParams.slice(p*3, p*3+3);
@@ -309,7 +295,7 @@ function plotGraph(){
                 const x = minX*Math.pow(maxX/minX,i/199); 
                 const y_surf = gaussianFunction(Math.log10(x),...pk);
                  if (isFinite(y_surf)) peakLine.push({x: x, y: y_surf});
-            }    
+            }   
             datasets.push({
                 label:`Peak ${p+1}`,
                 data: peakLine,
@@ -325,7 +311,7 @@ function plotGraph(){
     }
     
     displayFitResults(surfaceFitParams, numPeaks, !surfaceFitParams);
-    calculateAndDisplaySecondaryMetrics(); 
+    calculateAndDisplaySecondaryMetrics(surfaceFitParams);
 
     chartInstance=new Chart(ctx,{type:'scatter',data:{datasets},options:{
         responsive:true,
@@ -368,27 +354,64 @@ function displayFitResults(params,numPeaks,error=false){
     html+='</tbody></table>';fitResultsContent.innerHTML=html;
 }
 
+// ───────────────── NEW MODEL CALCULATION FUNCTIONS (from Python) ─────────────────
 
-function mu_a(a) {
-    if (a <= 0 || a >= 0.5) return NaN;
-    const one_minus_a = 1 - a;
-    const term1 = one_minus_a * Math.log(one_minus_a);
-    const term2 = a * Math.log(a);
-    return (term1 - term2 - (1 - 2*a)) / (1 - 2*a);
+// --- Numerical Integration (Simpson's Rule) ---
+function simpsonIntegrate(f, a, b, n = 1000) {
+    if (n % 2 !== 0) n++; // n must be even
+    const h = (b - a) / n;
+    let sum = f(a) + f(b);
+    for (let i = 1; i < n; i += 2) sum += 4 * f(a + i * h);
+    for (let i = 2; i < n - 1; i += 2) sum += 2 * f(a + i * h);
+    return sum * h / 3;
 }
 
-function sigma_sq_a(a) {
-    if (a <= 0 || a >= 0.5) return NaN;
-    const one_minus_a = 1 - a;
-    const integral_ln_r_sq = (r, lnr) => r * lnr * lnr - 2 * r * lnr + 2 * r;
-    const upper = integral_ln_r_sq(one_minus_a, Math.log(one_minus_a));
-    const lower = integral_ln_r_sq(a, Math.log(a));
-    const e_ln_r_sq = (upper - lower) / (1 - 2*a);
-    const mu = mu_a(a);
-    const mu_sq = mu * mu;
-    return e_ln_r_sq - mu_sq;
+// --- Volume Integral from Surface-Area Gaussian Parameters ---
+function I_volume(A_peak, D_um, sigma_log10) {
+    const mu = Math.log10(D_um);
+    const sigma = sigma_log10;
+    const LN10 = Math.log(10);
+    const SQRT2PI = Math.sqrt(2 * Math.PI);
+    return (A_peak / 6.0) * SQRT2PI * sigma * Math.exp(LN10 * mu + 0.5 * Math.pow(LN10 * sigma, 2));
 }
 
+// --- Surface-Area Weighted Split-Ratio Moments ---
+const mu_sa_cache = {};
+function mu_sa(a) {
+    if (a <= 1e-9 || a >= 0.5 - 1e-9) return NaN;
+    if (mu_sa_cache[a]) return mu_sa_cache[a];
+
+    const num_integrand = r => Math.pow(r, 2/3) * Math.log(r) + Math.pow(1 - r, 2/3) * Math.log(1 - r);
+    const den_integrand = r => Math.pow(r, 2/3) + Math.pow(1 - r, 2/3);
+    
+    const num = simpsonIntegrate(num_integrand, a, 1 - a) / (1 - 2 * a);
+    const den = simpsonIntegrate(den_integrand, a, 1 - a) / (1 - 2 * a);
+
+    const result = den !== 0 ? num / den : NaN;
+    mu_sa_cache[a] = result;
+    return result;
+}
+
+const var_sa_cache = {};
+function var_sa(a) {
+    if (a <= 1e-9 || a >= 0.5 - 1e-9) return NaN;
+    if (var_sa_cache[a]) return var_sa_cache[a];
+
+    const num2_integrand = r => Math.pow(r, 2/3) * Math.pow(Math.log(r), 2) + Math.pow(1 - r, 2/3) * Math.pow(Math.log(1 - r), 2);
+    const den_integrand = r => Math.pow(r, 2/3) + Math.pow(1 - r, 2/3);
+
+    const num2 = simpsonIntegrate(num2_integrand, a, 1 - a) / (1 - 2 * a);
+    const den = simpsonIntegrate(den_integrand, a, 1 - a) / (1 - 2 * a);
+    
+    const m = mu_sa(a); // Uses caching
+    if (isNaN(m) || den === 0) return NaN;
+
+    const result = (num2 / den) - m * m;
+    var_sa_cache[a] = result;
+    return result;
+}
+
+// --- Bisection Solver for Root Finding ---
 function bisectionSolver(f, min, max, tolerance = 1e-7, maxIter = 100) {
     let fMin;
     try { fMin = f(min); } catch (e) { return null; }
@@ -398,6 +421,7 @@ function bisectionSolver(f, min, max, tolerance = 1e-7, maxIter = 100) {
     let a = min, b = max, iter = 0;
     while (iter < maxIter) {
         let c = (a + b) / 2;
+        if (c === a || c === b) return c; // Precision limit reached
         let fC;
         try { fC = f(c); } catch (e) { return (a + b) / 2; }
         if (Math.abs(fC) < tolerance || (b - a) / 2 < tolerance) return c;
@@ -407,69 +431,104 @@ function bisectionSolver(f, min, max, tolerance = 1e-7, maxIter = 100) {
     return (a + b) / 2;
 }
 
-function calculateAndDisplaySecondaryMetrics() {
+
+function calculateAndDisplaySecondaryMetrics(surfaceFitParams) {
+    // Reset all result fields
     hypotheticalCutsResult.textContent = '-';
     splitRatioResult.textContent = '-';
     finesRateResult.textContent = '-';
+    
+    // Clear caches for new calculation
+    Object.keys(mu_sa_cache).forEach(key => delete mu_sa_cache[key]);
+    Object.keys(var_sa_cache).forEach(key => delete var_sa_cache[key]);
 
     const V0_mm3 = parseFloat(meanBeanVolumeInput.value);
 
-    
-    if (!volumeFitParams || !isFinite(V0_mm3) || V0_mm3 <= 0) return;
+    // Check for valid inputs
+    if (!surfaceFitParams || surfaceFitParams.length < 6 || !isFinite(V0_mm3) || V0_mm3 <= 0) {
+        return;
+    }
 
+    // Sort peaks by mean diameter to identify fine and coarse
     const pk = [];
-    for (let i = 0; i < volumeFitParams.length; i += 3) pk.push(volumeFitParams.slice(i, i + 3));
-    pk.sort((a, b) => a[1] - b[1]);
+    for (let i = 0; i < surfaceFitParams.length; i += 3) {
+        pk.push(surfaceFitParams.slice(i, i + 3));
+    }
+    pk.sort((a, b) => a[1] - b[1]); // Sort by mean (log10 scale)
 
-    if (pk.length < 2) return; 
+    const [A1, M1_log, s1_log] = pk[0]; // Fine peak
+    const [A2, M2_log, s2_log] = pk[1]; // Coarse peak
 
-    const [A1_fit, M1_log_size, S1_log_size] = pk[0];
-    const [A2_fit, M2_log_size, S2_log_size] = pk[1];
+    const D1_um = Math.pow(10, M1_log);
+    const D2_um = Math.pow(10, M2_log);
 
+    // --- ① Calculate fine-volume fraction (φ) ---
+    const IV_fine = I_volume(A1, D1_um, s1_log);
+    const IV_coarse = I_volume(A2, D2_um, s2_log);
+    const phi_fine = (IV_fine + IV_coarse > 0) ? (IV_fine / (IV_fine + IV_coarse)) : NaN;
+
+    // --- ② Estimate split-ratio (a) and hypothetical cuts (n) ---
     const LN10 = Math.log(10);
+    const ln_pi_over_6 = Math.log(Math.PI / 6);
     const V0_um3 = V0_mm3 * 1e9;
-    const ln_V0 = Math.log(V0_um3);
-    
-    const M_ln_volume_exp = Math.log(Math.PI / 6) + 3 * M2_log_size * LN10;
-    const S_ln_volume_sq_exp = 9 * Math.pow(S2_log_size * LN10, 2);
+    const lnV0 = Math.log(V0_um3);
 
-    const LHS = (M_ln_volume_exp - ln_V0) / S_ln_volume_sq_exp;
-    const funcToSolve = (a) => {
-        const mu = mu_a(a);
-        const sigma_sq = sigma_sq_a(a);
-        if (isNaN(mu) || isNaN(sigma_sq) || sigma_sq === 0) throw new Error("Invalid value in RHS calculation");
-        const RHS = mu / sigma_sq;
-        return LHS - RHS;
-    };
-    const a_solved = bisectionSolver(funcToSolve, 1e-9, 0.5 - 1e-9);
+    // Use coarse mode for a and n calculation
+    const mean_lnV = ln_pi_over_6 + 3 * LN10 * M2_log;
+    const var_lnV = Math.pow(3 * LN10 * s2_log, 2);
 
-    let n_solved = null;
-    if (a_solved) {
-        const sigma_sq_theory = sigma_sq_a(a_solved);
-        if (sigma_sq_theory > 0) {
-            n_solved = S_ln_volume_sq_exp / sigma_sq_theory;
+    const target = (mean_lnV - lnV0) / var_lnV;
+    const funcToSolve = (a) => (mu_sa(a) / var_sa(a)) - target;
+
+    // Find a valid bracket for the solver
+    let bracket = null;
+    const gridPoints = 200;
+    const step = (0.499999 - 1e-6) / gridPoints;
+    for (let i = 0; i < gridPoints; i++) {
+        const p1 = 1e-6 + i * step;
+        const p2 = 1e-6 + (i + 1) * step;
+        try {
+            const f1 = funcToSolve(p1);
+            const f2 = funcToSolve(p2);
+            if (f1 * f2 < 0) {
+                bracket = [p1, p2];
+                break;
+            }
+        } catch (e) {
+            // Ignore points where function is undefined
         }
     }
 
-    const area1_vol = A1_fit * S1_log_size;
-    const area2_vol = A2_fit * S2_log_size;
-    const phi_fine_exp = area1_vol > 0 && (area1_vol + area2_vol) > 0 ? area1_vol / (area1_vol + area2_vol) : 0;
-    
-    let epsilon_solved = null;
-    if (n_solved && n_solved > 0 && phi_fine_exp > 0 && phi_fine_exp < 1) {
-        epsilon_solved = 1 - Math.pow(1 - phi_fine_exp, 1 / n_solved);
+    let a_est = NaN;
+    let n_est = NaN;
+
+    if (bracket) {
+        a_est = bisectionSolver(funcToSolve, bracket[0], bracket[1]);
+        if (a_est) {
+            const var_sa_val = var_sa(a_est);
+            if (var_sa_val > 0) {
+                n_est = var_lnV / var_sa_val;
+            }
+        }
     }
 
-    if (n_solved && isFinite(n_solved)) hypotheticalCutsResult.textContent = n_solved.toFixed(2);
-    if (a_solved && isFinite(a_solved)) splitRatioResult.textContent = a_solved.toFixed(4);
-    if (epsilon_solved && isFinite(epsilon_solved)) finesRateResult.textContent = epsilon_solved.toFixed(4);
+    // --- ③ Calculate fines generation-rate (ε) ---
+    let epsilon = NaN;
+    if (!isNaN(n_est) && n_est > 0 && !isNaN(phi_fine) && phi_fine > 0 && phi_fine < 1) {
+        epsilon = 1 - Math.pow(1 - phi_fine, 1 / n_est);
+    }
+
+    // --- Display final results ---
+    if (!isNaN(n_est)) hypotheticalCutsResult.textContent = n_est.toFixed(2);
+    if (!isNaN(a_est)) splitRatioResult.textContent = a_est.toFixed(4);
+    if (!isNaN(epsilon)) finesRateResult.textContent = epsilon.toFixed(4);
 }
 
 
-
+// --- Event Listeners ---
 window.onload = plotGraph;
 dataInput.addEventListener('input', () => setTimeout(plotGraph, 50));
-meanBeanVolumeInput.addEventListener('input', calculateAndDisplaySecondaryMetrics);
+meanBeanVolumeInput.addEventListener('input', () => setTimeout(plotGraph, 50)); // Recalculate all on volume change
 
 </script>
 </body>

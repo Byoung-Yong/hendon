@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PSD Analyzer by Hendon's Coffee Research Group</title>
-    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Hendon-Coffee-Research/Grinder-Trauma-Model/main/assets/coffee_ico.png">
+    <link rel="icon" type="image/png" href="coffee_ico.png">
     <!-- Tailwind & Chart.js -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -473,8 +473,16 @@ function calculateAndDisplaySecondaryMetrics(surfaceFitParams) {
     const V0_um3 = V0_mm3 * 1e9;
     const lnV0 = Math.log(V0_um3);
 
+    // --- D2 Correction Step ---
+    let M2_log_for_calc = M2_log;
+    if (!isNaN(phi_fine) && phi_fine > 0 && phi_fine < 1) {
+        const D2_corr_um = D2_um / Math.pow(1 - phi_fine, 1/3);
+        M2_log_for_calc = Math.log10(D2_corr_um);
+    }
+    // --- End of Correction ---
+
     // Use coarse mode for a and n calculation
-    const mean_lnV = ln_pi_over_6 + 3 * LN10 * M2_log;
+    const mean_lnV = ln_pi_over_6 + 3 * LN10 * M2_log_for_calc;
     const var_lnV = Math.pow(3 * LN10 * s2_log, 2);
 
     const target = (mean_lnV - lnV0) / var_lnV;
